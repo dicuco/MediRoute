@@ -103,6 +103,16 @@ except Exception:
     devices["gps"] = None
     print("GPS no disponible, usando solo odometria")
 
+# LIDAR (añadido al robot Pioneer3DX como nodo extensionSlot)
+try:
+    lidar_device = robot.getDevice("lidar")
+    lidar_device.enable(timestep)
+    devices["lidar"] = lidar_device
+    print("LIDAR activado")
+except Exception:
+    devices["lidar"] = None
+    print("LIDAR no disponible")
+
 # ============================================================
 # ESTADO GLOBAL
 # ============================================================

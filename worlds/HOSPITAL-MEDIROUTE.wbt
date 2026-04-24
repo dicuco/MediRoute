@@ -21,8 +21,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.3745829194584487 0.6161468086570558 0.6928569452864789 1.4404268618753133
-  position -12.190574698877532 -37.5120789318349 58.21169605894896
+  orientation -0.5772371000261709 0.5835142236360871 0.57123417366939 2.094251483804072
+  position 5.265662635990746 0.5253801784550203 104.98490878099393
 }
 TexturedBackground {
 }
@@ -33,7 +33,6 @@ RectangleArena {
   floorSize 32 32
   floorAppearance Parquetry {
     type "light strip"
-    colorOverride 0.9785 0.978439 1
   }
   wallThickness 0.2
   wallHeight 2.8
@@ -946,6 +945,8 @@ Pioneer3dx {
   name "HALO"
   controller "HALO"
   extensionSlot [
+    Lidar {
+    }
     GPS {
     }
   ]
@@ -978,7 +979,7 @@ Television {
   rotation 0 0 1 -1.5707953071795862
 }
 Sofa {
-  translation 0.65999 3.42 0
+  translation 0.65999 3.96 0
   rotation 0 0 1 1.5708
 }
 Fridge {

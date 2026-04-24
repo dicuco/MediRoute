@@ -1,6 +1,6 @@
 from config import LOCATIONS, TRIGGER_CELL
-from navigation import astar, direction_from_cells, traversal_cost, apply_dynamic_event, passable
-from motion import rotate_to, move_one_cell, read_gps_cell
+from navigation import astar, direction_from_cells, traversal_cost, apply_dynamic_event, passable, block_cell
+from motion import rotate_to, move_one_cell, read_gps_cell, check_lidar_obstacle
 from metrics import register_cell_traversal, append_task_metric
 
 
@@ -48,6 +48,20 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         rotate_to(robot, timestep, devices, state, target_heading)
         rotation_end_time = robot.getTime()
         rotation_time = rotation_end_time - rotation_start_time
+
+        # --- LIDAR: obstáculo dinámico detectado tras girar hacia next_cell ---
+        if check_lidar_obstacle(devices):
+            print(f"[LIDAR] Obstáculo frente a {next_cell}, bloqueando y replanificando...")
+            block_cell(state, next_cell)
+            cost_map[next_cell[0]][next_cell[1]] = 999
+            new_route = astar(state, cost_map, state["current_cell"], final_goal)
+            local_replans += 1
+            if not new_route:
+                print("No se encontró ruta alternativa al obstáculo LIDAR.")
+                return False, local_cells_traversed, local_replans, local_route_cost
+            route = new_route
+            route_index = 1
+            continue
 
         forward_start_time = robot.getTime()
         move_one_cell(robot, timestep, devices, state=state, target_cell=next_cell)

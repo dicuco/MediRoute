@@ -180,6 +180,41 @@ def turn_around(robot, timestep, devices, state):
     print("Nueva orientación:", state["heading"])
 
 
+def check_lidar_obstacle(devices, threshold=None):
+    """
+    Devuelve True si el LIDAR detecta un obstáculo en el sector frontal.
+    Se llama DESPUÉS de girar hacia la celda objetivo (LIDAR apunta correcto).
+
+    Sector estrecho (±~7.5° para FOV 90°) para ignorar paredes laterales
+    del pasillo, que están solo a 0.5m del centro de celda y aparecerían
+    en los extremos del scan.
+
+    Umbral 0.55m: detecta objetos dinámicos en la primera mitad de la
+    celda siguiente sin dispararse por las paredes del propio pasillo.
+    """
+    if threshold is None:
+        threshold = CELL_SIZE * 0.55
+    lidar = devices.get("lidar")
+    if lidar is None:
+        return False
+    try:
+        ranges = lidar.getRangeImage()
+        if not ranges:
+            return False
+        n = len(ranges)
+        # Sector frontal: ±1/12 del total ≈ ±7.5° para un FOV de 90°.
+        # A ±7.5°, una pared lateral a 0.5m aparece a ~3.8m → no dispara.
+        sector = max(1, n // 12)
+        center = n // 2
+        front = ranges[center - sector: center + sector + 1]
+        valid = [r for r in front if 0.05 < r < 90.0]
+        if not valid:
+            return False
+        return min(valid) < threshold
+    except Exception:
+        return False
+
+
 def read_gps_cell(devices):
     """Lee el GPS y devuelve la celda lógica actual, o None si el GPS no está disponible."""
     gps = devices.get("gps")
