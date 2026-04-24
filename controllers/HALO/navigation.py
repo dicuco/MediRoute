@@ -7,7 +7,8 @@ from config import (
     NEW_BLOCKED_CELLS,
     FREE,
     CONGESTED,
-    BLOCKED
+    BLOCKED,
+    TENTATIVE_BLOCK_COST,
 )
 
 
@@ -159,6 +160,22 @@ def block_cell(state, cell):
         state["dynamic_blocked_cells"].add(cell)
         state["cell_states"][cell] = BLOCKED
         print(f"Celda {cell} BLOQUEADA dinámicamente. Estado = {state['cell_states'][cell]}")
+
+
+def tentatively_unblock_cell(state, cost_map, cell):
+    """
+    Caduca un bloqueo dinámico: la celda vuelve a ser transitable pero con
+    coste alto (TENTATIVE_BLOCK_COST). Si el LIDAR confirma que sigue
+    bloqueada al acercarse, se re-bloquea automáticamente. Si está libre,
+    el aprendizaje adaptativo irá bajando el coste con el tiempo.
+    """
+    r, c = cell
+    if GRID[r][c] != 0:
+        return
+    state["dynamic_blocked_cells"].discard(cell)
+    cost_map[r][c] = TENTATIVE_BLOCK_COST
+    update_cell_state_from_cost(state, cost_map, cell)
+    print(f"[DECAY] Bloqueo expirado en {cell} → CONGESTED coste={TENTATIVE_BLOCK_COST}")
 
 
 def apply_dynamic_event(state, cost_map):

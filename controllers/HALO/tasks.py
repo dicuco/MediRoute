@@ -1,7 +1,38 @@
-from config import LOCATIONS, TRIGGER_CELL
-from navigation import astar, direction_from_cells, traversal_cost, apply_dynamic_event, passable, block_cell
+from config import (LOCATIONS, TRIGGER_CELL, GRID,
+                    EXPECTED_FORWARD_CELL_TIME, BLOCK_DECAY_TRAVERSALS)
+from navigation import (astar, direction_from_cells, traversal_cost,
+                        apply_dynamic_event, passable, block_cell,
+                        tentatively_unblock_cell, update_cell_state_from_cost)
 from motion import rotate_to, move_one_cell, read_gps_cell, check_lidar_obstacle
 from metrics import register_cell_traversal, append_task_metric
+
+
+def _adapt_cost(state, cost_map, cell, forward_time):
+    """Ajusta el coste de una celda según el tiempo real de travesía."""
+    r, c = cell
+    if GRID[r][c] != 0 or cell in state["dynamic_blocked_cells"]:
+        return
+    if EXPECTED_FORWARD_CELL_TIME <= 0:
+        return
+    ratio = forward_time / EXPECTED_FORWARD_CELL_TIME
+    current = cost_map[r][c]
+    if ratio > 1.4 and current < 30:
+        cost_map[r][c] = min(30, current + 2)
+        update_cell_state_from_cost(state, cost_map, cell)
+        print(f"[LEARN] Coste {cell} ↑ {current}→{cost_map[r][c]} (ratio={ratio:.2f})")
+    elif ratio < 0.9 and current > 1:
+        cost_map[r][c] = max(1, current - 1)
+        update_cell_state_from_cost(state, cost_map, cell)
+
+
+def _decay_blocks(state, cost_map):
+    """Envejece los bloqueos dinámicos y caduca los que superan el umbral."""
+    for cell in list(state["dynamic_blocked_cells"]):
+        age = state["block_ages"].get(cell, 0) + 1
+        state["block_ages"][cell] = age
+        if age >= BLOCK_DECAY_TRAVERSALS:
+            tentatively_unblock_cell(state, cost_map, cell)
+            state["block_ages"].pop(cell, None)
 
 
 def follow_route_with_replanning(robot, timestep, devices, state, cost_map, route, final_goal, cell_metrics):
@@ -19,6 +50,8 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
     local_cells_traversed = 0
     local_replans = 0
     local_route_cost = 0
+    lidar_recovered = set()  # celdas que ya tuvieron un intento de recuperación
+    prev_cell = None  # celda de la que el robot acaba de salir (falso positivo LIDAR)
 
     state["current_cell"] = route[0]
     print("Inicio en:", state["current_cell"])
@@ -50,15 +83,31 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         rotation_time = rotation_end_time - rotation_start_time
 
         # --- LIDAR: obstáculo dinámico detectado tras girar hacia next_cell ---
-        if check_lidar_obstacle(devices):
+        # Ignoramos el LIDAR solo para la celda inmediatamente anterior: si el obstáculo
+        # está en la celda de al lado, al girar en sentido contrario puede dar falso positivo.
+        # El resto de celdas (incluso visitadas antes) se comprueban normalmente.
+        if next_cell != prev_cell and check_lidar_obstacle(devices):
             print(f"[LIDAR] Obstáculo frente a {next_cell}, bloqueando y replanificando...")
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
+            state["block_ages"][next_cell] = 0
             new_route = astar(state, cost_map, state["current_cell"], final_goal)
             local_replans += 1
             if not new_route:
-                print("No se encontró ruta alternativa al obstáculo LIDAR.")
-                return False, local_cells_traversed, local_replans, local_route_cost
+                # Sin ruta alternativa: si aún no hemos intentado recuperación para
+                # esta celda, relajamos el bloqueo a coste alto y reintentamos.
+                # Así el robot puede pasar si era un falso positivo, y si el obstáculo
+                # sigue ahí el LIDAR lo re-detectará en el siguiente paso.
+                if next_cell not in lidar_recovered:
+                    lidar_recovered.add(next_cell)
+                    tentatively_unblock_cell(state, cost_map, next_cell)
+                    state["block_ages"].pop(next_cell, None)
+                    new_route = astar(state, cost_map, state["current_cell"], final_goal)
+                    if new_route:
+                        print(f"[RECOVERY] Ruta encontrada relajando bloqueo en {next_cell}")
+                if not new_route:
+                    print(f"[WARN] Sin ruta posible desde {state['current_cell']} a {final_goal}, abandonando tarea.")
+                    return False, local_cells_traversed, local_replans, local_route_cost
             route = new_route
             route_index = 1
             continue
@@ -70,6 +119,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
         total_transition_time = rotation_time + forward_time
 
+        prev_cell = state["current_cell"]  # celda de la que acabamos de salir
         state["current_cell"] = next_cell
 
         # --- 2. Corrección de posición con GPS ---
@@ -109,6 +159,10 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
         local_cells_traversed += 1
         local_route_cost += traversal_cost(cost_map, state["current_cell"])
+
+        # --- Aprendizaje adaptativo y caducidad de bloqueos ---
+        _adapt_cost(state, cost_map, state["current_cell"], forward_time)
+        _decay_blocks(state, cost_map)
 
         # --- 3. Evento dinámico en TRIGGER_CELL ---
         if state["current_cell"] == TRIGGER_CELL and not state["replan_already_done"]:

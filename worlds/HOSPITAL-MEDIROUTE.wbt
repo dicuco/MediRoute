@@ -21,8 +21,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.5772371000261709 0.5835142236360871 0.57123417366939 2.094251483804072
-  position 5.265662635990746 0.5253801784550203 104.98490878099393
+  orientation -0.5193693079927627 0.5410123245744897 0.661484078851204 1.9349154431854299
+  position 4.377794676136368 -20.820636329628307 56.926780943187104
 }
 TexturedBackground {
 }
@@ -51,6 +51,21 @@ Armchair {
   rotation 2.3464099999870814e-06 -2.3464099999870814e-06 0.9999999999944944 -1.5707953071795862
 }
 Armchair {
+  translation 1.24 7.69 -2.78296e-05
+  rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
+  name "armchair(4)"
+}
+Armchair {
+  translation 5.34 7.69 -4.70712e-05
+  rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
+  name "armchair(5)"
+}
+Armchair {
+  translation -4.69 2.52 5.09418e-12
+  rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
+  name "armchair(3)"
+}
+Armchair {
   translation -3.63 -10.46 -4.97443e-06
   rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
   name "armchair(1)"
@@ -59,6 +74,11 @@ Armchair {
   translation -3.63 -7.51 -4.97443e-06
   rotation 2.3464199999870813e-06 -2.3464199999870813e-06 0.9999999999944944 -1.5707953071795862
   name "armchair(2)"
+}
+Armchair {
+  translation 7.24 -8.23 -5.5986e-05
+  rotation 2.3464199999870813e-06 2.3464199999870813e-06 0.9999999999944944 1.5708
+  name "armchair(6)"
 }
 WoodenChair {
   translation -0.01999 -2.36 0
@@ -183,12 +203,12 @@ HospitalBed {
   name "hospital bed(8)"
 }
 HospitalBed {
-  translation 5.89999 -7.3 0.28
+  translation 5.89999 -7.73 0.28
   rotation 0 0 1 -5.307179586466759e-06
   name "hospital bed(10)"
 }
 HospitalBed {
-  translation 8.50999 -7.3 0.28
+  translation 8.50999 -7.76 0.28
   rotation 0 0 1 -5.307179586466759e-06
   name "hospital bed(11)"
 }

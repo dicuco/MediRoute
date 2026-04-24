@@ -131,7 +131,8 @@ state = {
     "current_cell": (0, 0),
     "replan_already_done": False,
     "dynamic_blocked_cells": set(),
-    "cell_states": cell_states
+    "cell_states": cell_states,
+    "block_ages": {},  # cell -> nº de celdas recorridas desde que se bloqueó
 }
 
 # Datos dinámicos
@@ -172,8 +173,7 @@ while task_queue:
     )
 
     if not success:
-        print("Ejecución detenida por error de planificación.")
-        break
+        print(f"[WARN] Tarea {origin_name}->{destination_name} fallida, continuando con la siguiente.")
 
 # ============================================================
 # RESUMEN FINAL

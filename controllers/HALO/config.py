@@ -75,6 +75,13 @@ EXPECTED_FORWARD_CELL_TIME = (CELL_SIZE / NOMINAL_LINEAR_SPEED) * 1.15
 # Penalización automática por retraso real de avance
 AUTO_DELAY_PENALTY = 1
 
+# Aprendizaje adaptativo de costes
+# Celdas totales recorridas antes de que un bloqueo LIDAR caduque y el robot
+# lo intente de nuevo con coste alto (passable, pero caro).
+BLOCK_DECAY_TRAVERSALS = 20
+# Coste asignado a una celda cuando su bloqueo LIDAR caduca.
+TENTATIVE_BLOCK_COST = 60
+
 # ============================================================
 # MAPA DEL HOSPITAL  (28 filas × 22 columnas)
 # ============================================================
