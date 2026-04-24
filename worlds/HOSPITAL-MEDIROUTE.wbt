@@ -16,12 +16,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/television/protos/Television.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/living_room_furniture/protos/Sofa.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/fridge/protos/Fridge.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.21515575473678278 0.38806437956189826 0.8961663007047767 1.1080720321261388
-  position -16.057913794490496 -41.10298641454046 24.705509519291407
+  orientation -0.3745829194584487 0.6161468086570558 0.6928569452864789 1.4404268618753133
+  position -12.190574698877532 -37.5120789318349 58.21169605894896
 }
 TexturedBackground {
 }
@@ -30,6 +31,10 @@ TexturedBackgroundLight {
 RectangleArena {
   translation 0.2 0 0
   floorSize 32 32
+  floorAppearance Parquetry {
+    type "light strip"
+    colorOverride 0.9785 0.978439 1
+  }
   wallThickness 0.2
   wallHeight 2.8
 }
