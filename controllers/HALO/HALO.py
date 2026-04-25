@@ -139,6 +139,7 @@ state = {
 
 # Datos dinámicos
 cost_map = create_cost_map()
+event_log.log_initial_cost_map(cost_map)
 task_queue = create_task_queue()
 task_metrics = create_task_metrics()
 cell_metrics = create_cell_metrics()

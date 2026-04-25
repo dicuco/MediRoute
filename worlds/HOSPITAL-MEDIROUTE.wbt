@@ -17,12 +17,18 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/living_room_furniture/protos/Sofa.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/fridge/protos/Fridge.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/humans/pedestrian/protos/Pedestrian.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/oven/protos/Oven.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/components/protos/Worktop.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/components/protos/HotPlate.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/components/protos/Sink.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/kitchen/utensils/protos/Cookware.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.5193693079927627 0.5410123245744897 0.661484078851204 1.9349154431854299
-  position 4.377794676136368 -20.820636329628307 56.926780943187104
+  orientation -0.5714271704513537 0.5718933687353133 0.5885651736779322 2.0769413086546535
+  position 2.74066142518201 -3.1998136703891227 77.0321233122609
 }
 TexturedBackground {
 }
@@ -37,6 +43,49 @@ RectangleArena {
   wallThickness 0.2
   wallHeight 2.8
 }
+Armchair {
+  translation 6.62 -2.3 0
+  rotation 0 0 1 3.14159
+}
+Armchair {
+  translation 6.62 -1.22 0
+  rotation 0 0 1 3.14159
+  name "armchair(13)"
+}
+WoodenChair {
+  translation 4.52 -2.67 0
+  name "wooden chair(4)"
+}
+WoodenChair {
+  translation 4.52 -2.04 0
+  name "wooden chair(5)"
+}
+WoodenChair {
+  translation 4.52 -1.31 0
+  name "wooden chair(6)"
+}
+WoodenChair {
+  translation 4.52 -0.64 0
+  name "wooden chair(7)"
+}
+Worktop {
+  translation 5.63 4.67 0.63
+  size 1.6 0.44 0.06
+}
+Pedestrian {
+  translation -8.61 0 1.27
+  rotation 0 0 1 -1.5707953071795862
+}
+Pedestrian {
+  translation -8.51 -0.64 1.37
+  rotation 0 0 1 -1.5707953071795862
+  name "pedestrian(1)"
+}
+Pedestrian {
+  translation -8.51 0.54 1.37
+  rotation 0 0 1 -1.5707953071795862
+  name "pedestrian(2)"
+}
 TrashBin {
   translation 10.67 -3.6 0
   rotation 0 0 1 3.14159
@@ -47,17 +96,38 @@ TrashBin {
   name "trash bin(1)"
 }
 Armchair {
-  translation -4.69 10.26 2.45446e-11
-  rotation 2.3464099999870814e-06 -2.3464099999870814e-06 0.9999999999944944 -1.5707953071795862
-}
-Armchair {
-  translation 1.24 7.69 -2.78296e-05
-  rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
+  translation -6.27 7.82 7.4144e-06
+  rotation -2.343280460602283e-09 0.9774071921221089 0.21136504154655075 4.80113e-06
   name "armchair(4)"
 }
 Armchair {
-  translation 5.34 7.69 -4.70712e-05
-  rotation 2.3464099999870814e-06 2.3464099999870814e-06 0.9999999999944944 1.5708
+  translation -3.32 7.82 -6.42888e-06
+  rotation 2.3463299999935412e-06 1.6875599999953545e-14 0.9999999999972473 3.14159
+  name "armchair(7)"
+}
+Armchair {
+  translation 11.43 3.09 -7.56497e-05
+  rotation 2.3463299999935412e-06 1.6875599999953545e-14 0.9999999999972473 3.14159
+  name "armchair(11)"
+}
+Armchair {
+  translation -0.239992 10.21 -2.08965e-05
+  rotation 1.0425298222007241e-08 -0.8697038516754995 0.49357391582295007 -5.307179586466759e-06
+  name "armchair(8)"
+}
+Armchair {
+  translation 2.69001 10.21 -3.44188e-05
+  rotation 2.3078399999938544e-06 3.873029999989686e-14 0.999999999997337 3.14159
+  name "armchair(9)"
+}
+Armchair {
+  translation 6.79001 10.21 -5.33409e-05
+  rotation 2.3078399999938544e-06 3.873029999989686e-14 0.999999999997337 3.14159
+  name "armchair(10)"
+}
+Armchair {
+  translation 3.72 10.17 -4.02913e-05
+  rotation 5.672108215044546e-09 -0.788631751825513 -0.6148658065079098 -5.307179586466759e-06
   name "armchair(5)"
 }
 Armchair {
@@ -76,13 +146,21 @@ Armchair {
   name "armchair(2)"
 }
 Armchair {
-  translation 7.24 -8.23 -5.5986e-05
-  rotation 2.3464199999870813e-06 2.3464199999870813e-06 0.9999999999944944 1.5708
+  translation 5.68 -5.95 -4.94548e-05
+  rotation 5.672120716998643e-09 -0.7886330996891447 -0.6148640777234357 -5.307179586466759e-06
   name "armchair(6)"
 }
+Armchair {
+  translation 8.67 -5.95 -6.19716e-05
+  rotation 2.09271e-06 2.50858e-14 1 -3.1415853071795863
+  name "armchair(12)"
+}
 WoodenChair {
-  translation -0.01999 -2.36 0
+  translation -0.0199922 -2.14 0
   rotation 0 0 -1 -5.307179586466759e-06
+}
+Cookware {
+  translation 5.21 4.78 0.67
 }
 WoodenChair {
   translation 0.030008 -1.52 0
@@ -120,6 +198,11 @@ BathroomSink {
   rotation 0 0 1 1.5708
 }
 BathroomSink {
+  translation -3.36 4.84 0.47
+  rotation 0 0 1 -1.5707953071795862
+  name "sink(4)"
+}
+BathroomSink {
   translation -4.74 -1.88 0.47
   rotation 0 0 1 1.5708
   name "sink(2)"
@@ -148,6 +231,46 @@ Curtain {
   name "curtain(1)"
 }
 Curtain {
+  translation -4.76 10.02 0
+  rotation 0 0 1 1.01459e-06
+  name "curtain(4)"
+}
+Curtain {
+  translation -4.81 9.93 0
+  rotation 0 0 1 3.14159
+  name "curtain(5)"
+}
+Curtain {
+  translation 1.19 8.09 0
+  rotation 0 0 1 3.14159
+  name "curtain(6)"
+}
+Curtain {
+  translation 1.27 7.97 0
+  rotation 0 0 1 -5.307179586466759e-06
+  name "curtain(7)"
+}
+Curtain {
+  translation 5.21 8.09 0
+  rotation 0 0 1 3.14159
+  name "curtain(8)"
+}
+Curtain {
+  translation 7.06 -8.16 0
+  rotation 0 0 1 3.14159
+  name "curtain(10)"
+}
+Curtain {
+  translation 7.14 -8.25 0
+  rotation 0 0 1 -5.307179586466759e-06
+  name "curtain(11)"
+}
+Curtain {
+  translation 5.29 7.92 0
+  rotation 0 0 1 -5.307179586466759e-06
+  name "curtain(9)"
+}
+Curtain {
   translation -4.62 -8.95 0
   rotation 0 0 1 1.5708
   name "curtain(2)"
@@ -161,11 +284,6 @@ HospitalBed {
   translation -5.49 -7.8 0.28
   rotation 0 0 1 -1.5707953071795862
   name "hospital bed(1)"
-}
-HospitalBed {
-  translation -3.46 3.2 0.28
-  rotation 0 0 1 1.01459e-06
-  name "hospital bed(3)"
 }
 HospitalBed {
   translation -6.11 3.2 0.28
@@ -990,9 +1108,15 @@ Toilet {
   rotation 0 0 1 -1.5707953071795862
   name "toilet(2)"
 }
+Toilet {
+  translation -3.14 2.99 0
+  rotation 0 0 1 3.14159
+  name "toilet(4)"
+}
 Table {
   translation 0.65 -1.91 0
   rotation 0 0 1 -3.1415853071795863
+  size 1 1.4 0.74
 }
 Television {
   translation 0.67 4.73 0.73
@@ -1005,4 +1129,21 @@ Sofa {
 Fridge {
   translation -0.25 -14.75 0
   rotation 0 0 1 3.14159
+}
+Fridge {
+  translation 6.79001 4.55 0
+  rotation 0 0 1 -1.5707953071795862
+  name "fridge(1)"
+}
+Oven {
+  translation 4.56 4.64 0
+  rotation 0 0 1 -1.5707953071795862
+}
+HotPlate {
+  translation 5.02 4.67 0.63
+}
+Sink {
+  translation 6.09 4.72 0.76
+  rotation 0 0 1 -1.5707953071795862
+  name "sink(5)"
 }

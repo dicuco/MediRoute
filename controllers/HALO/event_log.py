@@ -58,6 +58,22 @@ def init():
         )
 
 
+def log_initial_cost_map(cost_map):
+    """Guarda el mapa de costes inicial al arrancar la simulación."""
+    _write("── MAPA DE COSTES INICIAL ──────────────────────────────────────────")
+    _write(f"  (999=pared/bloqueado  .=libre  otros=coste aprendido)")
+    _write("")
+    for r, row in enumerate(cost_map):
+        parts = []
+        for val in row:
+            cell_str = "." if val == 1 else str(val)
+            parts.append(f"{cell_str:>5s}")
+        _write(f"  r{r:2d}:{''.join(parts)}")
+    _write("")
+    _write("── FIN MAPA INICIAL ────────────────────────────────────────────────")
+    _write("")
+
+
 def log_block(cell, old_cost, cost_map, sim_time=None):
     """
     Registra que el LIDAR bloqueó una celda (coste → 999) y vuelca el mapa.

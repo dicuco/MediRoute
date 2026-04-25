@@ -78,9 +78,9 @@ AUTO_DELAY_PENALTY = 1
 # Aprendizaje adaptativo de costes
 # Celdas totales recorridas antes de que un bloqueo LIDAR caduque y el robot
 # lo intente de nuevo con coste alto (passable, pero caro).
-BLOCK_DECAY_TRAVERSALS = 7
+BLOCK_DECAY_TRAVERSALS = 15
 # Coste asignado a una celda cuando su bloqueo LIDAR caduca.
-TENTATIVE_BLOCK_COST = 20
+TENTATIVE_BLOCK_COST = 25
 
 # ============================================================
 # MAPA DEL HOSPITAL  (28 filas × 22 columnas)
@@ -125,6 +125,7 @@ GRID = [
     [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # row 26, y=-13.00
     [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # row 27, y=-14.00
 ]
+#   [0   1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21]
 
 # ============================================================
 # UBICACIONES LÓGICAS DEL HOSPITAL
@@ -183,11 +184,11 @@ INITIAL_TASKS = [
 
 # Al llegar a TRIGGER_CELL se penalizan varias celdas y se bloquea una.
 # El robot se ve obligado a replanificar su ruta.
-TRIGGER_CELL = (12, 7)
-PENALTY_TARGETS = [(7, 9), (7, 10), (7, 11), (7, 12)]
+TRIGGER_CELL = (27, 21)
+PENALTY_TARGETS = []
 PENALTY_VALUE = 50
 
-NEW_BLOCKED_CELLS = [(7, 8)]
+NEW_BLOCKED_CELLS = []
 
 
 def cell_to_world(cell):
