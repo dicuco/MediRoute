@@ -10,6 +10,7 @@ from config import (
     BLOCKED,
     TENTATIVE_BLOCK_COST,
 )
+import event_log
 
 
 def direction_from_cells(a, b):
@@ -172,9 +173,11 @@ def tentatively_unblock_cell(state, cost_map, cell):
     r, c = cell
     if GRID[r][c] != 0:
         return
+    old_cost = cost_map[r][c]
     state["dynamic_blocked_cells"].discard(cell)
     cost_map[r][c] = TENTATIVE_BLOCK_COST
     update_cell_state_from_cost(state, cost_map, cell)
+    event_log.log_unblock(cell, old_cost, TENTATIVE_BLOCK_COST, cost_map)
     print(f"[DECAY] Bloqueo expirado en {cell} → CONGESTED coste={TENTATIVE_BLOCK_COST}")
 
 

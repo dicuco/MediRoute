@@ -1,4 +1,5 @@
 from controller import Robot
+import event_log
 
 from config import (
     LOCATIONS,
@@ -29,6 +30,7 @@ from tasks import execute_task
 
 robot = Robot()
 timestep = int(robot.getBasicTimeStep())
+event_log.init()
 
 
 def get_first_available_device(robot_instance, candidates, label):
@@ -187,6 +189,8 @@ for row in cost_map:
 print_task_summary(task_metrics)
 print_cell_summary(cell_metrics)
 print_cell_state_summary(state["cell_states"])
+
+event_log.flush()
 
 while robot.step(timestep) != -1:
     pass

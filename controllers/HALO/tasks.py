@@ -5,6 +5,7 @@ from navigation import (astar, direction_from_cells, traversal_cost,
                         tentatively_unblock_cell, update_cell_state_from_cost)
 from motion import rotate_to, move_one_cell, read_gps_cell, check_lidar_obstacle
 from metrics import register_cell_traversal, append_task_metric
+import event_log
 
 
 def _adapt_cost(state, cost_map, cell, forward_time):
@@ -88,9 +89,11 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         # El resto de celdas (incluso visitadas antes) se comprueban normalmente.
         if next_cell != prev_cell and check_lidar_obstacle(devices):
             print(f"[LIDAR] Obstáculo frente a {next_cell}, bloqueando y replanificando...")
+            old_cost = cost_map[next_cell[0]][next_cell[1]]
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
             state["block_ages"][next_cell] = 0
+            event_log.log_block(next_cell, old_cost, cost_map, sim_time=robot.getTime())
             new_route = astar(state, cost_map, state["current_cell"], final_goal)
             local_replans += 1
             if not new_route:
