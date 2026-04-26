@@ -6,6 +6,8 @@ from collections import deque
 # ============================================================
 
 ROBOT_MODEL = os.getenv("HALO_ROBOT_MODEL", "pioneer3dx").lower()
+#Como el primer mapa que hicimos era para un robot demasiado pequeño, para reutilizar todo
+# el diseño de ese mapa sin tener que redibujarlo, lo que hicimos fue escalarlo 4x.
 MAP_SCALE = float(os.getenv("HALO_MAP_SCALE", "4.0"))
 
 ROBOT_PROFILES = {
@@ -55,8 +57,8 @@ TURN_BRAKE_RATIO = float(os.getenv("HALO_TURN_BRAKE_RATIO", "0.45"))
 # Heading inicial logico (0=norte, 1=este, 2=sur, 3=oeste).
 INITIAL_HEADING = int(os.getenv("HALO_INITIAL_HEADING", "1")) % 4
 
-CONGESTED_CELLS = {(13, 7), (14, 7), (15, 7), (16, 7)}
-#CONGESTED_CELLS={}
+#CONGESTED_CELLS = {(13, 7), (14, 7), (15, 7), (16, 7)}
+CONGESTED_CELLS={}
 
 # Tamaño lógico de una celda (centro a centro).
 # El mapa grande actual es un escalado 4x del mapa original.
@@ -134,49 +136,55 @@ GRID = [
 LOCATIONS = {
     # Marcadores temporales: cajas de carton del mundo HOSPITAL-MEDIROUTE.
     # Calculadas con world_to_cell(x, y) para MAP_SCALE=4.0.
-    "ROOM_BOX_00": (13, 5),   # cardboard box
-    "ROOM_BOX_01": (8, 4),    # cardboard box(1)
-    "ROOM_BOX_02": (6, 4),    # cardboard box(2)
-    "ROOM_BOX_03": (10, 9),   # cardboard box(3)
-    "ROOM_BOX_04": (10, 15),  # cardboard box(4)
-    "ROOM_BOX_05": (14, 9),   # cardboard box(5)
-    "ROOM_BOX_06": (14, 15),  # cardboard box(6)
-    "ROOM_BOX_07": (22, 6),   # cardboard box(7)
-    "ROOM_BOX_08": (3, 10),   # cardboard box(8)
-    "ROOM_BOX_09": (3, 14),   # cardboard box(9)
-    "ROOM_BOX_10": (10, 19),  # cardboard box(10)
-    "ROOM_BOX_11": (18, 16),  # cardboard box(11)
-
-    # Punto inicial del robot y origen de la primera tarea.
-    # Coordenadas alineadas con la caja de carton del mundo en x=-1.76, y=-14.46.
-    "PHARMACY": (27, 7),
+    "Toilet": (13, 5),   # Toilet
+    "Single_Room_1": (8, 4),    # Individual Room 1
+    "Double_Room_1": (6, 4),    # Doble Room 1 (Arriba Izquierda)
+    "TV_Room": (11, 9),   # TV Room
+    "Kitchen": (10, 15),  # Kitchen
+    "Dining_Room": (13, 9),   # Dining Room
+    "Waiting_Room": (13, 15),  # Waiting Room
+    "Double_Room_5": (22, 6),   # Doble Room 5 (abajo izquierda)
+    "Double_Room_2": (3, 10),   # Doble Room 2 (arriba centro)
+    "Double_Room_3": (3, 14),   # Dooble Room 3 (arriba derecha)
+    "Single_Room_2": (10, 18),  # Individual Room 2
+    "Double_Room_4": (18, 16),  # Doble Room 4 (abajo derecha)
+    "PHARMACY": (27, 7),      # Punto inicial del robot y origen de la primera tarea.
 }
 
 # ============================================================
 # COLA INICIAL DE TAREAS
 # ============================================================
-
 INITIAL_TASKS = [
-    ("PHARMACY", "ROOM_BOX_00"),
-    ("ROOM_BOX_00", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_05"),
-    ("ROOM_BOX_05", "ROOM_BOX_10"),
-    ("ROOM_BOX_10", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_02"),
-    ("ROOM_BOX_02", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_07"),
-    ("ROOM_BOX_07", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_11"),
-    ("ROOM_BOX_11", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_03"),
-    ("ROOM_BOX_03", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_08"),
-    ("ROOM_BOX_08", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_01"),
-    ("ROOM_BOX_01", "PHARMACY"),
-    ("PHARMACY", "ROOM_BOX_04"),
-    ("ROOM_BOX_04", "PHARMACY"),
+    ("PHARMACY", "Double_Room_1"),
+    ("Double_Room_1", "PHARMACY"),
+    ("PHARMACY","Double_Room_4"),
+    ("Double_Room_4", "PHARMACY"),
+    ("PHARMACY", "Single_Room_2"),
+    ("Single_Room_2", "Single_Room_1"),
+    ("Single_Room_1", "PHARMACY"),
+    ("PHARMACY", "Double_Room_3"),
+    ("Double_Room_3", "PHARMACY"),
 ]
+
+# INITIAL_TASKS = [
+#     ("PHARMACY", "Dining_Room"),
+#     ("Dining_Room", "PHARMACY"),
+#     ("PHARMACY", "Single_Room_1"),
+#     ("Single_Room_1", "PHARMACY"),
+#     ("PHARMACY", "Single_Room_1"),
+#     ("Single_Room_1", "PHARMACY"),
+#     ("PHARMACY", "Double_Room_2"),
+#     ("Double_Room_2", "PHARMACY"),
+#     ("PHARMACY", "Double_Room_3"),
+#     ("Double_Room_3", "PHARMACY"),
+#     ("PHARMACY", "Double_Room_4"),
+#     ("Double_Room_4", "PHARMACY"),
+# ]
+# INITIAL_TASKS = [
+#     ("PHARMACY", "Double_Room_1"),
+#     ("Double_Room_1","Single_Room_2"),
+#     ("Single_Room_2", "PHARMACY"),
+#     ]
 
 # ============================================================
 # EVENTO DINÁMICO DE EJEMPLO

@@ -27,8 +27,10 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.5714271704513537 0.5718933687353133 0.5885651736779322 2.0769413086546535
-  position 2.74066142518201 -3.1998136703891227 77.0321233122609
+  orientation -0.2537727640463901 0.6943601802053714 0.673396855036775 0.9945103729939336
+  position -23.853082943508166 -23.91544471052473 27.515773806170202
+  follow "rectangle arena"
+  followType "None"
 }
 TexturedBackground {
 }
@@ -73,22 +75,27 @@ Worktop {
   size 1.6 0.44 0.06
 }
 Pedestrian {
-  translation -8.61 0 1.27
+  translation -1.94 3.06 1.27
   rotation 0 0 1 -1.5707953071795862
 }
 Pedestrian {
-  translation -8.51 -0.64 1.37
-  rotation 0 0 1 -1.5707953071795862
-  name "pedestrian(1)"
-}
-Pedestrian {
-  translation -8.51 0.54 1.37
+  translation -1.42 2.91 1.37
   rotation 0 0 1 -1.5707953071795862
   name "pedestrian(2)"
+}
+Pedestrian {
+  translation 0.15 -4.16 1.37
+  rotation 0 0 1 1.01459e-06
+  name "pedestrian(1)"
 }
 TrashBin {
   translation 10.67 -3.6 0
   rotation 0 0 1 3.14159
+}
+TrashBin {
+  translation -0.06 5.86 3.47786e-19
+  rotation -1.27237e-14 -9.58979e-09 1 3.14159
+  name "trash bin(2)"
 }
 TrashBin {
   translation 10.67 -4.45 0
@@ -141,7 +148,7 @@ Armchair {
   name "armchair(1)"
 }
 Armchair {
-  translation -3.63 -7.51 -4.97443e-06
+  translation -3.63 -7.59 -4.97443e-06
   rotation 2.3464199999870813e-06 -2.3464199999870813e-06 0.9999999999944944 -1.5707953071795862
   name "armchair(2)"
 }
@@ -948,13 +955,13 @@ Wall {
   size 0.2 2 1
 }
 Wall {
-  translation -6.76 -1 0
+  translation -6.83 -1 0
   rotation 0 0 1 1.01459e-06
   name "wall(26)"
   size 0.2 2 1
 }
 Wall {
-  translation -6.76 0.88 0
+  translation -6.81 0.88 0
   rotation 0 0 1 1.01459e-06
   name "wall(27)"
   size 0.2 2 1
@@ -1123,7 +1130,7 @@ Television {
   rotation 0 0 1 -1.5707953071795862
 }
 Sofa {
-  translation 0.65999 3.96 0
+  translation 0.65999 3.54 0
   rotation 0 0 1 1.5708
 }
 Fridge {
