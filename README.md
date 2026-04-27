@@ -19,6 +19,7 @@ MediRoute currently includes:
 - **Explicit cell states**: `FREE`, `CONGESTED`, `BLOCKED`
 - **Travel-time monitoring**
 - **Performance metrics** per task and per cell :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4} :contentReference[oaicite:5]{index=5}
+- **Real-time task dispatch** via REST + WebSocket (optional UI)
 
 ## Architecture overview
 
@@ -88,6 +89,26 @@ The current version of the controller supports:
   - `FREE`
   - `CONGESTED`
   - `BLOCKED`
+
+## Real-time task server (REST + WebSocket)
+
+The controller can host a lightweight task server that lets you push new
+origin/destination jobs while the simulation runs. A minimal web UI is
+served at the same address.
+
+Environment variables:
+
+- `HALO_TASK_SERVER_ENABLED` (default `1`)
+- `HALO_TASK_SERVER_HOST` (default `127.0.0.1`)
+- `HALO_TASK_SERVER_PORT` (default `8000`)
+- `HALO_EXIT_ON_EMPTY_QUEUE` (default `0` to keep running)
+
+Endpoints:
+
+- `GET /locations`
+- `GET /tasks`
+- `POST /tasks` (payload: `{ origin, destination, priority }`)
+- `GET /ws` (WebSocket stream for updates)
 
 ## Repository structure
 

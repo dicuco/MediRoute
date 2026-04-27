@@ -201,7 +201,12 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
     - ir al destino
     - guardar métricas de la tarea
     """
-    origin = LOCATIONS[origin_name]
+    origin_from_current = False
+    if origin_name == "CURRENT":
+        origin = state["current_cell"]
+        origin_from_current = True
+    else:
+        origin = LOCATIONS[origin_name]
     destination = LOCATIONS[destination_name]
 
     print("\n==============================")
@@ -213,7 +218,7 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
     replans = 0
     executed_route_cost = 0
 
-    if state["current_cell"] != origin:
+    if not origin_from_current and state["current_cell"] != origin:
         route_to_origin = astar(state, cost_map, state["current_cell"], origin)
         print("Ruta hasta el origen:", route_to_origin)
 

@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MediRoute Task Queue</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Mono:wght@400;500&display=swap");
+
+    :root {
+      --bg: #0c1220;
+      --bg-soft: #121a2f;
+      --card: #141e36;
+      --card-strong: #1a2747;
+      --ink: #f2f5ff;
+      --ink-dim: #a8b3d6;
+      --accent: #ff8f3d;
+      --accent-2: #34d1bf;
+      --alert: #ff5f6d;
+      --good: #7dffb2;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 10%, #1a2340 0%, #0c1220 55%, #080c18 100%);
+      color: var(--ink);
+      font-family: "Space Grotesk", sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 32px 6vw 10px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 3vw, 40px);
+      letter-spacing: 0.5px;
+    }
+
+    .sub {
+      color: var(--ink-dim);
+      max-width: 680px;
+      line-height: 1.5;
+    }
+
+    main {
+      padding: 10px 6vw 40px;
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .card {
+      background: linear-gradient(160deg, rgba(26, 39, 71, 0.9), rgba(17, 26, 47, 0.8));
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(4, 8, 20, 0.5);
+      border: 1px solid rgba(85, 102, 156, 0.2);
+      animation: liftIn 0.6s ease forwards;
+      transform: translateY(8px);
+      opacity: 0;
+    }
+
+    .card:nth-child(2) { animation-delay: 0.05s; }
+    .card:nth-child(3) { animation-delay: 0.1s; }
+    .card:nth-child(4) { animation-delay: 0.15s; }
+
+    @keyframes liftIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--ink-dim);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.6px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .badge strong {
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task-item {
+      padding: 12px 14px;
+      background: rgba(12, 18, 32, 0.7);
+      border-radius: 12px;
+      border: 1px solid rgba(69, 86, 130, 0.35);
+    }
+
+    .task-item .route {
+      font-weight: 600;
+    }
+
+    .task-item .meta {
+      font-family: "Fira Mono", monospace;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    select, button {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: none;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    select {
+      background: var(--card-strong);
+      color: var(--ink);
+      border: 1px solid rgba(85, 102, 156, 0.3);
+    }
+
+    button {
+      background: linear-gradient(120deg, var(--accent), #ffc164);
+      color: #1a1110;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(255, 143, 61, 0.35);
+    }
+
+    .priority-high { color: var(--accent); }
+    .priority-medium { color: var(--accent-2); }
+    .priority-low { color: var(--ink-dim); }
+
+    .status-running { color: var(--good); }
+    .status-failed { color: var(--alert); }
+    .status-done { color: var(--good); }
+
+    footer {
+      padding: 0 6vw 32px;
+      color: var(--ink-dim);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MediRoute Task Queue</h1>
+    <p class="sub">
+      Real-time task dispatch with priorities. Add new delivery jobs while the robot is running.
+    </p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Dispatch</h2>
+      <div class="badge">
+        <span>Queue status</span>
+        <strong id="queueStatus">connecting...</strong>
+      </div>
+      <form id="taskForm">
+        <label>
+          Origin
+          <select id="originSelect"></select>
+        </label>
+        <label>
+          Destination
+          <select id="destinationSelect"></select>
+        </label>
+        <label>
+          Priority
+          <select id="prioritySelect">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <button type="submit">Create task</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Running</h2>
+      <div id="runningTask" class="list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Queued</h2>
+      <div id="queuedTasks" class="list"></div>
+    </section>
+
+    <section class="card">
+      <h2>History</h2>
+      <div id="historyTasks" class="list"></div>
+    </section>
+  </main>
+
+  <footer>
+    WebSocket updates in real time. If the connection drops, the UI falls back to polling.
+  </footer>
+
+  <script>
+    const state = {
+      snapshot: null,
+      polling: null,
+      ws: null,
+    };
+
+    const queueStatus = document.getElementById("queueStatus");
+    const originSelect = document.getElementById("originSelect");
+    const destinationSelect = document.getElementById("destinationSelect");
+    const runningTask = document.getElementById("runningTask");
+    const queuedTasks = document.getElementById("queuedTasks");
+    const historyTasks = document.getElementById("historyTasks");
+
+    function setStatus(text) {
+      queueStatus.textContent = text;
+    }
+
+    function formatTask(task) {
+      if (!task) return "";
+      return `
+        <div class="task-item">
+          <div class="route">${task.origin} -> ${task.destination}</div>
+          <div class="meta">
+            <span class="priority-${task.priority}">${task.priority}</span> | id ${task.id} | ${task.status}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSnapshot(snapshot) {
+      state.snapshot = snapshot;
+      if (!snapshot) return;
+      setStatus("connected");
+
+      runningTask.innerHTML = snapshot.running ? formatTask(snapshot.running) : "<p>No task running</p>";
+
+      const queued = [];
+      ["high", "medium", "low"].forEach((priority) => {
+        const tasks = snapshot.queued[priority] || [];
+        if (tasks.length) {
+          queued.push(`<div class=\"task-item\"><strong class=\"priority-${priority}\">${priority}</strong></div>`);
+          tasks.forEach((task) => queued.push(formatTask(task)));
+        }
+      });
+      queuedTasks.innerHTML = queued.length ? queued.join("") : "<p>No tasks queued</p>";
+
+      const history = (snapshot.history || []).slice(0, 8).map(formatTask).join("");
+      historyTasks.innerHTML = history || "<p>No history yet</p>";
+    }
+
+    async function fetchLocations() {
+      const res = await fetch("/locations");
+      const data = await res.json();
+      originSelect.innerHTML = "";
+      destinationSelect.innerHTML = "";
+      data.locations.forEach((name) => {
+        const opt1 = document.createElement("option");
+        opt1.value = name;
+        opt1.textContent = name === "CURRENT" ? "CURRENT (robot)" : name;
+        originSelect.appendChild(opt1);
+        const opt2 = document.createElement("option");
+        opt2.value = name;
+        opt2.textContent = name;
+        destinationSelect.appendChild(opt2);
+      });
+      if (data.locations.includes("CURRENT")) {
+        originSelect.value = "CURRENT";
+      }
+    }
+
+    async function fetchSnapshot() {
+      const res = await fetch("/tasks");
+      const data = await res.json();
+      renderSnapshot(data);
+    }
+
+    function startPolling() {
+      if (state.polling) return;
+      setStatus("polling");
+      state.polling = setInterval(fetchSnapshot, 3000);
+    }
+
+    function stopPolling() {
+      if (!state.polling) return;
+      clearInterval(state.polling);
+      state.polling = null;
+    }
+
+    function connectWebSocket() {
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${protocol}://${location.host}/ws`);
+      state.ws = ws;
+
+      ws.onopen = () => {
+        setStatus("connected");
+        stopPolling();
+      };
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.payload) {
+            renderSnapshot(message.payload);
+          }
+        } catch (err) {
+          console.warn("Bad message", err);
+        }
+      };
+      ws.onclose = () => {
+        setStatus("disconnected");
+        startPolling();
+        setTimeout(connectWebSocket, 2500);
+      };
+    }
+
+    document.getElementById("taskForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = {
+        origin: originSelect.value,
+        destination: destinationSelect.value,
+        priority: document.getElementById("prioritySelect").value,
+      };
+      await fetch("/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    });
+
+    fetchLocations().then(fetchSnapshot).then(connectWebSocket).catch(startPolling);
+  </script>
+</body>
+</html>

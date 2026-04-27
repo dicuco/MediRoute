@@ -14,6 +14,10 @@ from config import (
     INITIAL_HEADING,
     create_task_queue,
     create_cost_map,
+    TASK_SERVER_ENABLED,
+    TASK_SERVER_HOST,
+    TASK_SERVER_PORT,
+    EXIT_ON_EMPTY_QUEUE,
 )
 from metrics import (
     create_task_metrics,
@@ -23,6 +27,11 @@ from metrics import (
     print_cell_state_summary
 )
 from tasks import execute_task
+
+try:
+    from task_server import start_task_server
+except ImportError:
+    start_task_server = None
 
 # ============================================================
 # ARRANQUE DE WEBOTS
@@ -137,10 +146,18 @@ state = {
     "block_ages": {},  # cell -> nº de celdas recorridas desde que se bloqueó
 }
 
+idle_return_pending = True
+
 # Datos dinámicos
 cost_map = create_cost_map()
 event_log.log_initial_cost_map(cost_map)
 task_queue = create_task_queue()
+if TASK_SERVER_ENABLED:
+    if start_task_server is None:
+        print("[WARN] Servidor de tareas no disponible. Instala fastapi y uvicorn para habilitarlo.")
+    else:
+        start_task_server(task_queue, host=TASK_SERVER_HOST, port=TASK_SERVER_PORT)
+        print(f"Servidor de tareas activo en http://{TASK_SERVER_HOST}:{TASK_SERVER_PORT}")
 task_metrics = create_task_metrics()
 cell_metrics = create_cell_metrics()
 
@@ -155,28 +172,73 @@ for row in cost_map:
     print(row)
 
 # Posición inicial del robot = origen de la primera tarea
-if task_queue:
-    first_origin, _ = task_queue[0]
-    state["current_cell"] = LOCATIONS[first_origin]
-    print("Posición inicial del robot:", state["current_cell"])
+first_task = task_queue.peek_next()
+if first_task is not None:
+    if first_task.origin in LOCATIONS:
+        state["current_cell"] = LOCATIONS[first_task.origin]
+        print("Posición inicial del robot:", state["current_cell"])
+else:
+    state["current_cell"] = LOCATIONS["PHARMACY"]
+    print("Posición inicial del robot (por defecto):", state["current_cell"])
+
+exit_on_empty = EXIT_ON_EMPTY_QUEUE or not TASK_SERVER_ENABLED
+if not exit_on_empty:
+    print("Modo cola dinamica activo. Esperando nuevas tareas si la cola queda vacia.")
 
 # Procesamiento de la cola de tareas
-while task_queue:
-    origin_name, destination_name = task_queue.popleft()
-    success = execute_task(
-        robot,
-        timestep,
-        devices,
-        state,
-        cost_map,
-        task_metrics,
-        cell_metrics,
-        origin_name,
-        destination_name
-    )
+while True:
+    task = task_queue.pop_next()
+    if task is None:
+        if not exit_on_empty:
+            if task_queue.is_empty() and idle_return_pending:
+                if state["current_cell"] != LOCATIONS["PHARMACY"]:
+                    print("[IDLE] Sin tareas. Regresando a PHARMACY...")
+                    success = execute_task(
+                        robot,
+                        timestep,
+                        devices,
+                        state,
+                        cost_map,
+                        task_metrics,
+                        cell_metrics,
+                        "CURRENT",
+                        "PHARMACY",
+                    )
+                    idle_return_pending = False
+                    if not success:
+                        print("[WARN] No se pudo regresar a PHARMACY en modo idle.")
+                else:
+                    idle_return_pending = False
+
+        if exit_on_empty and task_queue.is_empty():
+            break
+        if robot.step(timestep) == -1:
+            break
+        continue
+
+    try:
+        success = execute_task(
+            robot,
+            timestep,
+            devices,
+            state,
+            cost_map,
+            task_metrics,
+            cell_metrics,
+            task.origin,
+            task.destination
+        )
+    except Exception as exc:
+        print(f"[ERROR] Tarea {task.origin}->{task.destination} fallo: {exc}")
+        success = False
+
+    task_queue.complete(task.task_id, success)
+    idle_return_pending = True
 
     if not success:
-        print(f"[WARN] Tarea {origin_name}->{destination_name} fallida, continuando con la siguiente.")
+        print(
+            f"[WARN] Tarea {task.origin}->{task.destination} fallida, continuando con la siguiente."
+        )
 
 # ============================================================
 # RESUMEN FINAL

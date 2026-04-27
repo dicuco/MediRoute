@@ -1,5 +1,6 @@
 import os
-from collections import deque
+
+from task_queue import TaskQueue
 
 # ============================================================
 # CONSTANTES DEL ROBOT Y DEL MAPA
@@ -56,6 +57,12 @@ TURN_BRAKE_RATIO = float(os.getenv("HALO_TURN_BRAKE_RATIO", "0.45"))
 
 # Heading inicial logico (0=norte, 1=este, 2=sur, 3=oeste).
 INITIAL_HEADING = int(os.getenv("HALO_INITIAL_HEADING", "1")) % 4
+
+# Servidor de tareas en tiempo real (REST + WebSocket)
+TASK_SERVER_ENABLED = os.getenv("HALO_TASK_SERVER_ENABLED", "1") == "1"
+TASK_SERVER_HOST = os.getenv("HALO_TASK_SERVER_HOST", "127.0.0.1")
+TASK_SERVER_PORT = int(os.getenv("HALO_TASK_SERVER_PORT", "8000"))
+EXIT_ON_EMPTY_QUEUE = os.getenv("HALO_EXIT_ON_EMPTY_QUEUE", "0") == "1"
 
 #CONGESTED_CELLS = {(13, 7), (14, 7), (15, 7), (16, 7)}
 CONGESTED_CELLS={}
@@ -155,15 +162,6 @@ LOCATIONS = {
 # COLA INICIAL DE TAREAS
 # ============================================================
 INITIAL_TASKS = [
-    ("PHARMACY", "Double_Room_1"),
-    ("Double_Room_1", "PHARMACY"),
-    ("PHARMACY","Double_Room_4"),
-    ("Double_Room_4", "PHARMACY"),
-    ("PHARMACY", "Single_Room_2"),
-    ("Single_Room_2", "Single_Room_1"),
-    ("Single_Room_1", "PHARMACY"),
-    ("PHARMACY", "Double_Room_3"),
-    ("Double_Room_3", "PHARMACY"),
 ]
 
 # INITIAL_TASKS = [
@@ -215,8 +213,8 @@ def world_to_cell(x, y):
 
 
 def create_task_queue():
-    """Devuelve una copia nueva de la cola de tareas."""
-    return deque(INITIAL_TASKS)
+    """Devuelve una cola de tareas con prioridad."""
+    return TaskQueue(INITIAL_TASKS)
 
 
 def create_cost_map():
