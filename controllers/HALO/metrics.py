@@ -1,5 +1,5 @@
 from collections import defaultdict
-from config import EXPECTED_FORWARD_CELL_TIME, AUTO_DELAY_PENALTY
+from config import EXPECTED_FORWARD_CELL_TIME, AUTO_DELAY_PENALTY, AUTO_DELAY_THRESHOLD_RATIO
 from navigation import penalize_cell
 
 
@@ -43,14 +43,16 @@ def register_cell_traversal(state, cell_metrics, cost_map, cell, rotation_time, 
     cell_metrics[cell]["rotation_avg_time"] = cell_metrics[cell]["rotation_total_time"] / visits
     cell_metrics[cell]["forward_avg_time"] = cell_metrics[cell]["forward_total_time"] / visits
 
-    if forward_time > EXPECTED_FORWARD_CELL_TIME:
+    delay_threshold = EXPECTED_FORWARD_CELL_TIME * AUTO_DELAY_THRESHOLD_RATIO
+    if forward_time > delay_threshold:
         cell_metrics[cell]["delays"] += 1
-        cell_metrics[cell]["auto_penalties"] += 1
-        penalize_cell(state, cost_map, cell, AUTO_DELAY_PENALTY)
-        print(
-            f"[AUTO] Retraso detectado en {cell}: "
-            f"avance {forward_time:.3f}s > {EXPECTED_FORWARD_CELL_TIME:.3f}s"
-        )
+        if AUTO_DELAY_PENALTY > 0:
+            cell_metrics[cell]["auto_penalties"] += 1
+            penalize_cell(state, cost_map, cell, AUTO_DELAY_PENALTY)
+            print(
+                f"[AUTO] Retraso detectado en {cell}: "
+                f"avance {forward_time:.3f}s > {delay_threshold:.3f}s"
+            )
 
 
 def append_task_metric(task_metrics, origin_name, destination_name, origin, destination,

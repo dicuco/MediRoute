@@ -116,6 +116,12 @@ def create_app(task_queue: TaskQueue, event_bus: TaskEventBus) -> FastAPI:
         task = task_queue.add_task(payload.origin, payload.destination, payload.priority)
         return task.to_dict()
 
+    @app.delete("/tasks/{task_id}")
+    def delete_task(task_id: int) -> Dict[str, object]:
+        if not task_queue.cancel(task_id):
+            raise HTTPException(status_code=404, detail="Tarea no encontrada o en ejecucion")
+        return {"ok": True}
+
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
         await manager.connect(websocket)

@@ -146,6 +146,30 @@ class TaskQueue:
         self._emit_snapshot()
         return True
 
+    def cancel(self, task_id: int) -> bool:
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if task is None or task.status != STATUS_QUEUED:
+                return False
+
+            removed = False
+            for queue in self._queues.values():
+                for item in list(queue):
+                    if item.task_id == task_id:
+                        queue.remove(item)
+                        removed = True
+                        break
+                if removed:
+                    break
+
+            if not removed:
+                return False
+
+            self._tasks.pop(task_id, None)
+
+        self._emit_snapshot()
+        return True
+
     def get_snapshot(self) -> Dict[str, object]:
         with self._lock:
             queued = {

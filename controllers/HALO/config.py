@@ -83,6 +83,7 @@ EXPECTED_FORWARD_CELL_TIME = (CELL_SIZE / NOMINAL_LINEAR_SPEED) * 1.15
 
 # Penalización automática por retraso real de avance
 AUTO_DELAY_PENALTY = 1
+AUTO_DELAY_THRESHOLD_RATIO = float(os.getenv("HALO_AUTO_DELAY_THRESHOLD_RATIO", "1.2"))
 
 # Aprendizaje adaptativo de costes
 # Celdas totales recorridas antes de que un bloqueo LIDAR caduque y el robot
@@ -161,23 +162,23 @@ LOCATIONS = {
 # ============================================================
 # COLA INICIAL DE TAREAS
 # ============================================================
-INITIAL_TASKS = [
-]
-
 # INITIAL_TASKS = [
-#     ("PHARMACY", "Dining_Room"),
-#     ("Dining_Room", "PHARMACY"),
-#     ("PHARMACY", "Single_Room_1"),
-#     ("Single_Room_1", "PHARMACY"),
-#     ("PHARMACY", "Single_Room_1"),
-#     ("Single_Room_1", "PHARMACY"),
-#     ("PHARMACY", "Double_Room_2"),
-#     ("Double_Room_2", "PHARMACY"),
-#     ("PHARMACY", "Double_Room_3"),
-#     ("Double_Room_3", "PHARMACY"),
-#     ("PHARMACY", "Double_Room_4"),
-#     ("Double_Room_4", "PHARMACY"),
 # ]
+
+INITIAL_TASKS = [
+    ("PHARMACY", "Dining_Room"),
+    ("Dining_Room", "PHARMACY"),
+    ("PHARMACY", "Single_Room_1"),
+    ("Single_Room_1", "PHARMACY"),
+    ("PHARMACY", "Single_Room_1"),
+    ("Single_Room_1", "PHARMACY"),
+    ("PHARMACY", "Double_Room_2"),
+    ("Double_Room_2", "PHARMACY"),
+    ("PHARMACY", "Double_Room_3"),
+    ("Double_Room_3", "PHARMACY"),
+    ("PHARMACY", "Double_Room_4"),
+    ("Double_Room_4", "PHARMACY"),
+]
 # INITIAL_TASKS = [
 #     ("PHARMACY", "Double_Room_1"),
 #     ("Double_Room_1","Single_Room_2"),

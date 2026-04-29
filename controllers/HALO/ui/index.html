@@ -114,6 +114,13 @@
       border: 1px solid rgba(69, 86, 130, 0.35);
     }
 
+    .task-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
     .task-item .route {
       font-weight: 600;
     }
@@ -155,6 +162,22 @@
     button:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 16px rgba(255, 143, 61, 0.35);
+    }
+
+    .task-delete {
+      background: rgba(255, 95, 109, 0.15);
+      color: var(--alert);
+      border: 1px solid rgba(255, 95, 109, 0.4);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .task-delete:hover {
+      transform: translateY(-1px);
+      box-shadow: none;
+      background: rgba(255, 95, 109, 0.25);
     }
 
     .priority-high { color: var(--accent); }
@@ -258,6 +281,21 @@
       `;
     }
 
+    function formatQueuedTask(task) {
+      if (!task) return "";
+      return `
+        <div class="task-item task-row">
+          <div>
+            <div class="route">${task.origin} -> ${task.destination}</div>
+            <div class="meta">
+              <span class="priority-${task.priority}">${task.priority}</span> | id ${task.id} | ${task.status}
+            </div>
+          </div>
+          <button class="task-delete" data-task-id="${task.id}">Eliminar</button>
+        </div>
+      `;
+    }
+
     function renderSnapshot(snapshot) {
       state.snapshot = snapshot;
       if (!snapshot) return;
@@ -270,7 +308,7 @@
         const tasks = snapshot.queued[priority] || [];
         if (tasks.length) {
           queued.push(`<div class=\"task-item\"><strong class=\"priority-${priority}\">${priority}</strong></div>`);
-          tasks.forEach((task) => queued.push(formatTask(task)));
+          tasks.forEach((task) => queued.push(formatQueuedTask(task)));
         }
       });
       queuedTasks.innerHTML = queued.length ? queued.join("") : "<p>No tasks queued</p>";
@@ -355,6 +393,13 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+    });
+
+    queuedTasks.addEventListener("click", async (event) => {
+      const button = event.target.closest(".task-delete");
+      if (!button) return;
+      const taskId = button.getAttribute("data-task-id");
+      await fetch(`/tasks/${taskId}`, { method: "DELETE" });
     });
 
     fetchLocations().then(fetchSnapshot).then(connectWebSocket).catch(startPolling);
