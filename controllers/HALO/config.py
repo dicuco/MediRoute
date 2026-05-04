@@ -81,8 +81,10 @@ GRID_ORIGIN_Y = BASE_GRID_ORIGIN_Y * MAP_SCALE
 NOMINAL_LINEAR_SPEED = WHEEL_RADIUS * FORWARD_SPEED
 EXPECTED_FORWARD_CELL_TIME = (CELL_SIZE / NOMINAL_LINEAR_SPEED) * 1.15
 
-# Penalización automática por retraso real de avance
-AUTO_DELAY_PENALTY = 1
+# Penalización automática por retraso real de avance.
+# Deshabilitada (0) porque Q-Learning ya captura los retrasos en la recompensa
+# y sobreescribiría estos incrementos al sincronizar cost_map.
+AUTO_DELAY_PENALTY = 0
 AUTO_DELAY_THRESHOLD_RATIO = float(os.getenv("HALO_AUTO_DELAY_THRESHOLD_RATIO", "1.2"))
 
 # Aprendizaje adaptativo de costes

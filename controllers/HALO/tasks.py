@@ -1,29 +1,43 @@
-from config import (LOCATIONS, TRIGGER_CELL, GRID,
-                    EXPECTED_FORWARD_CELL_TIME, BLOCK_DECAY_TRAVERSALS)
+from config import (LOCATIONS, TRIGGER_CELL, GRID, BLOCK_DECAY_TRAVERSALS)
 from navigation import (astar, direction_from_cells, traversal_cost,
                         apply_dynamic_event, passable, block_cell,
-                        tentatively_unblock_cell, update_cell_state_from_cost)
+                        tentatively_unblock_cell)
 from motion import rotate_to, move_one_cell, read_gps_cell, check_lidar_obstacle
 from metrics import register_cell_traversal, append_task_metric
+from qlearning import q_update, sync_cell_cost, QL_INIT_VALUE
 import event_log
 
 
-def _adapt_cost(state, cost_map, cell, forward_time):
-    """Ajusta el coste de una celda según el tiempo real de travesía."""
-    r, c = cell
-    if GRID[r][c] != 0 or cell in state["dynamic_blocked_cells"]:
+def _ql_update(q_table, cost_map, state, s, action, forward_time, s_prime):
+    """
+    Actualiza Q(s, action) con la ecuación de Bellman y sincroniza cost_map[s].
+
+    s        : celda que acaba de traversarse (destino del paso actual)
+    action   : dirección con la que se entró a s  (0=N 1=E 2=S 3=O)
+    forward_time : tiempo real de avance hasta s
+    s_prime  : siguiente celda planificada, o None si s es el destino final
+    """
+    _DIRS = ["N", "E", "S", "O"]
+    r, c = s
+    if GRID[r][c] != 0 or s in state["dynamic_blocked_cells"]:
         return
-    if EXPECTED_FORWARD_CELL_TIME <= 0:
-        return
-    ratio = forward_time / EXPECTED_FORWARD_CELL_TIME
-    current = cost_map[r][c]
-    if ratio > 1.4 and current < 30:
-        cost_map[r][c] = min(30, current + 2)
-        update_cell_state_from_cost(state, cost_map, cell)
-        print(f"[LEARN] Coste {cell} ↑ {current}→{cost_map[r][c]} (ratio={ratio:.2f})")
-    elif ratio < 0.9 and current > 1:
-        cost_map[r][c] = max(1, current - 1)
-        update_cell_state_from_cost(state, cost_map, cell)
+
+    old_cost = cost_map[r][c]
+    q_update(q_table, s, action, forward_time, s_prime)
+    sync_cell_cost(q_table, cost_map, state, s)
+
+    # min(Q) es el valor que determina el coste (dirección más penalizada)
+    worst_q = min(q_table[r][c])
+    new_cost = cost_map[r][c]
+    deviation = abs(worst_q - QL_INIT_VALUE)
+
+    # Siempre imprime si hay desviación significativa del ideal; marca ★ si cambia el coste.
+    if deviation > 0.05 or new_cost != old_cost:
+        marker = "  ★ coste cambiado" if new_cost != old_cost else ""
+        print(
+            f"[Q-LEARN] ({r:2d},{c:2d}) ←{_DIRS[action]}  "
+            f"t={forward_time:.3f}s  Q_worst={worst_q:8.3f}  coste={new_cost}{marker}"
+        )
 
 
 def _decay_blocks(state, cost_map):
@@ -36,7 +50,7 @@ def _decay_blocks(state, cost_map):
             state["block_ages"].pop(cell, None)
 
 
-def follow_route_with_replanning(robot, timestep, devices, state, cost_map, route, final_goal, cell_metrics):
+def follow_route_with_replanning(robot, timestep, devices, state, cost_map, route, final_goal, cell_metrics, q_table):
     """
     Sigue una ruta celda a celda con tres niveles de robustez:
     1. Antes de cada movimiento: replanifica si la siguiente celda está bloqueada.
@@ -163,8 +177,9 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         local_cells_traversed += 1
         local_route_cost += traversal_cost(cost_map, state["current_cell"])
 
-        # --- Aprendizaje adaptativo y caducidad de bloqueos ---
-        _adapt_cost(state, cost_map, state["current_cell"], forward_time)
+        # --- Q-Learning: actualiza Q(celda_actual, dirección_entrada) y caducidad ---
+        s_prime = route[route_index + 1] if route_index + 1 < len(route) else None
+        _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
         _decay_blocks(state, cost_map)
 
         # --- 3. Evento dinámico en TRIGGER_CELL ---
@@ -193,7 +208,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
     return True, local_cells_traversed, local_replans, local_route_cost
 
 
-def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_metrics,
+def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_metrics, q_table,
                  origin_name, destination_name):
     """
     Ejecuta una tarea completa:
@@ -224,7 +239,7 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
 
         if route_to_origin and len(route_to_origin) >= 2:
             ok, partial_cells, partial_replans, partial_cost = follow_route_with_replanning(
-                robot, timestep, devices, state, cost_map, route_to_origin, origin, cell_metrics
+                robot, timestep, devices, state, cost_map, route_to_origin, origin, cell_metrics, q_table
             )
             cells_traversed += partial_cells
             replans += partial_replans
@@ -244,7 +259,7 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
         return False
 
     ok, partial_cells, partial_replans, partial_cost = follow_route_with_replanning(
-        robot, timestep, devices, state, cost_map, route_to_destination, destination, cell_metrics
+        robot, timestep, devices, state, cost_map, route_to_destination, destination, cell_metrics, q_table
     )
     cells_traversed += partial_cells
     replans += partial_replans
