@@ -79,9 +79,9 @@ Q(s, a) ← Q(s, a) + α · [r + γ · max_a' Q(s', a') − Q(s, a)]
 | `r` | Normalised reward: `−(actual_time / expected_time)` |
 | `s'` | Next planned cell (or terminal state at the goal) |
 | `α` | Learning rate — `0.3` |
-| `γ` | Discount factor — `0.9` |
+| `γ` | Discount factor — `0.0` (pure EMA of immediate reward, no future propagation) |
 
-**Q-table initialisation.** Every cell starts at `Q_init = −1 / (1 − γ) = −10`, which represents the expected discounted return for a corridor traversed at ideal speed.
+**Q-table initialisation.** Every cell starts at `Q_init = −1 / (1 − γ) = −1`, which is the expected immediate reward for a corridor traversed at ideal speed. With `γ = 0` the update reduces to an exponential moving average of the immediate reward, so Q-values never embed discounted future costs that A\* would then sum again.
 
 **Converting Q-values to A\* costs.** The cost assigned to a cell is derived from the most-penalised direction (the `min` across all four Q-values). This prevents un-visited directions — which remain at `Q_init` — from masking a slow direction:
 
@@ -90,14 +90,14 @@ deviation = −min(Q[cell]) − |Q_init|      # 0 for ideal, positive for slow
 cost      = clamp(round(deviation × 5 + 1), 1, 30)
 ```
 
-Example convergence values (isolated cell, ideal neighbours):
+Example convergence values (isolated cell, `γ = 0`):
 
 | Traversal ratio | Q convergence | Learned cost |
 |-----------------|---------------|--------------|
-| 1× (ideal) | −10.0 | 1 |
-| 2× slow | −11.0 | 6 |
-| 3× slow | −12.0 | 11 |
-| 5× slow | −14.0 | 21 |
+| 1× (ideal) | −1.0 | 1 |
+| 2× slow | −2.0 | 6 |
+| 3× slow | −3.0 | 11 |
+| 5× slow | −5.0 | 21 |
 
 After each Q update the corresponding `cost_map` entry is refreshed, so A\* immediately uses the new cost on the next replanning call.
 
@@ -167,10 +167,10 @@ Q-Learning parameters in `qlearning.py`:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `QL_ALPHA` | `0.3` | Learning rate |
-| `QL_GAMMA` | `0.9` | Discount factor |
+| `QL_GAMMA` | `0.0` | Discount factor (0 = EMA of immediate reward only) |
 | `QL_COST_SCALE` | `5` | Maps Q-deviation to A\* cost range |
 | `QL_MAX_COST` | `30` | Maximum cost Q-Learning can assign |
-| `QL_INIT_VALUE` | `−10.0` | Initial Q-value (ideal traversal at discount γ) |
+| `QL_INIT_VALUE` | `−1.0` | Initial Q-value (ideal immediate reward, `−1/(1−γ)`) |
 
 ## Repository structure
 

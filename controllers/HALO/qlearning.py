@@ -5,13 +5,13 @@ from config import GRID, EXPECTED_FORWARD_CELL_TIME
 # ============================================================
 
 QL_ALPHA = 0.3          # Tasa de aprendizaje
-QL_GAMMA = 0.9          # Factor de descuento
+QL_GAMMA = 0.0          # Factor de descuento (0 = EMA pura del reward inmediato, sin propagación futura)
 QL_COST_SCALE = 5       # Escala para convertir desviación Q → coste A*
 QL_MAX_COST = 30        # Coste máximo que puede asignar Q-Learning
 
-# Q-valor inicial: equivale a "celda ideal traversada en tiempo esperado".
-# Con γ=0.9, la serie geométrica de recompensas -1 converge a -1/(1-γ) = -10.
-QL_INIT_VALUE = -1.0 / (1.0 - QL_GAMMA)   # -10.0
+# Q-valor inicial: con γ=0 el valor esperado en condiciones ideales (reward=-1) es -1.0.
+# Fórmula general: -1/(1-γ); con γ=0 → -1.0.
+QL_INIT_VALUE = -1.0 / (1.0 - QL_GAMMA)   # -1.0
 
 QL_CONFIG_STR = (
     f"α={QL_ALPHA}  γ={QL_GAMMA}  "
@@ -86,11 +86,11 @@ def q_to_cost(q_values):
       desviación = -min(Q) − |QL_INIT_VALUE|   (0 para ideal, >0 para peor)
       coste = max(1, min(QL_MAX_COST, round(desviación × QL_COST_SCALE + 1)))
 
-    Ejemplos con γ=0.9, escala=5 (celda aislada, siguiente ideal):
-      traversal 1×  →  Q* ≈ −10  →  desv=0   →  coste=1
-      traversal 2×  →  Q* ≈ −11  →  desv=1   →  coste=6
-      traversal 3×  →  Q* ≈ −12  →  desv=2   →  coste=11
-      traversal 5×  →  Q* ≈ −13  →  desv=3   →  coste=16
+    Ejemplos con γ=0, escala=5 (celda aislada):
+      traversal 1×  →  Q* = −1   →  desv=0   →  coste=1
+      traversal 2×  →  Q* = −2   →  desv=1   →  coste=6
+      traversal 3×  →  Q* = −3   →  desv=2   →  coste=11
+      traversal 5×  →  Q* = −5   →  desv=4   →  coste=21
     """
     worst_q = min(q_values)          # dirección más penalizada (más negativa)
     deviation = -worst_q - abs(QL_INIT_VALUE)
