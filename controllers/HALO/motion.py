@@ -33,12 +33,18 @@ def get_wheel_distances(devices):
     return left_dist, right_dist
 
 
+OBSTACLE_CHECK_THRESHOLD = CELL_SIZE * 0.35  # umbral de frenada de emergencia durante avance
+OBSTACLE_CHECK_MIN_DIST = 0.05              # no comprobar en los primeros 5 cm (evita falsos positivos al arrancar)
+
+
 def move_forward(robot, timestep, devices, distance_m, slow=False,
-                 gps_target=None, heading=None):
+                 gps_target=None, heading=None, obstacle_check=False):
     """
     Avanza una distancia concreta en metros.
     Control híbrido: corrección por encoders + corrección lateral GPS (si disponible).
     Parada por distancia GPS cuando está a menos de GPS_STOP_THRESHOLD del objetivo.
+
+    Devuelve True si completó el avance, False si se detuvo por un obstáculo LIDAR.
     """
     speed = FORWARD_SPEED * SLOW_SPEED_FACTOR if slow else FORWARD_SPEED
     start_left, start_right = get_wheel_distances(devices)
@@ -62,6 +68,16 @@ def move_forward(robot, timestep, devices, distance_m, slow=False,
         delta_left = abs(current_left - start_left)
         delta_right = abs(current_right - start_right)
         avg_distance = (delta_left + delta_right) / 2.0
+
+        # Comprobación de obstáculo durante el avance (umbral más estricto que el pre-movimiento)
+        if obstacle_check and avg_distance > OBSTACLE_CHECK_MIN_DIST:
+            if check_lidar_obstacle(devices, threshold=OBSTACLE_CHECK_THRESHOLD):
+                stop(devices)
+                print(
+                    f"[LIDAR] Parada de emergencia a {avg_distance:.3f}m "
+                    f"del inicio (objetivo={distance_m:.3f}m)"
+                )
+                return False
 
         encoder_error = delta_left - delta_right
         correction = STRAIGHT_CORRECTION_GAIN * encoder_error
@@ -110,6 +126,7 @@ def move_forward(robot, timestep, devices, distance_m, slow=False,
             break
 
     stop(devices)
+    return True
 
 
 def turn_in_place(robot, timestep, devices, angle_deg):
@@ -228,11 +245,13 @@ def read_gps_cell(devices):
         return None
 
 
-def move_one_cell(robot, timestep, devices, state=None, target_cell=None):
+def move_one_cell(robot, timestep, devices, state=None, target_cell=None, obstacle_check=False):
     """
     Avanza exactamente una celda lógica.
     Usa el estado dinámico de celdas para detectar congestión; cae al
     conjunto estático si no se proporciona estado.
+
+    Devuelve True si completó el avance, False si se detuvo por un obstáculo LIDAR.
     """
     slow = False
     if target_cell is not None:
@@ -244,9 +263,12 @@ def move_one_cell(robot, timestep, devices, state=None, target_cell=None):
         print(f"  Congestion en {target_cell}, reduciendo velocidad")
     gps_target = cell_to_world(target_cell) if target_cell is not None else None
     heading = state["heading"] if state is not None else None
-    move_forward(robot, timestep, devices, CELL_SIZE, slow=slow,
-                 gps_target=gps_target, heading=heading)
-    print("Avanzada una celda")
+    completed = move_forward(robot, timestep, devices, CELL_SIZE, slow=slow,
+                             gps_target=gps_target, heading=heading,
+                             obstacle_check=obstacle_check)
+    if completed:
+        print("Avanzada una celda")
+    return completed
 
 
 def rotate_to(robot, timestep, devices, state, target_heading):

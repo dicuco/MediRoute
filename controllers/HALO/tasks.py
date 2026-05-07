@@ -7,6 +7,37 @@ from metrics import register_cell_traversal, append_task_metric
 from qlearning import q_update, sync_cell_cost, QL_INIT_VALUE
 import event_log
 
+# Segundos de simulación que el robot espera cuando no hay ruta disponible,
+# para dar tiempo a que los peatones despejen el pasillo.
+WAIT_CLEAR_SECONDS = 5.0
+MAX_WAIT_ATTEMPTS = 3
+
+
+def _wait_sim_seconds(robot, timestep, seconds):
+    """Avanza la simulación sin mover el robot durante el número de segundos indicado."""
+    steps = max(1, int(seconds * 1000 / timestep))
+    for _ in range(steps):
+        if robot.step(timestep) == -1:
+            return False
+    return True
+
+
+def _force_unblock_adjacent(state, cost_map, cell, lidar_recovered):
+    """
+    Libera tentativamente todos los bloqueos dinámicos adyacentes a cell.
+    También los elimina de lidar_recovered para que puedan volver a
+    intentar la recuperación normal si el obstáculo desaparece.
+    """
+    r, c = cell
+    released = []
+    for adj in [(r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)]:
+        if adj in state["dynamic_blocked_cells"]:
+            tentatively_unblock_cell(state, cost_map, adj)
+            state["block_ages"].pop(adj, None)
+            lidar_recovered.discard(adj)
+            released.append(adj)
+    return released
+
 
 def _ql_update(q_table, cost_map, state, s, action, forward_time, s_prime):
     """
@@ -66,7 +97,8 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
     local_replans = 0
     local_route_cost = 0
     lidar_recovered = set()  # celdas que ya tuvieron un intento de recuperación
-    prev_cell = None  # celda de la que el robot acaba de salir (falso positivo LIDAR)
+    wait_attempts = 0       # veces que el robot esperó a que el pasillo se despejara
+    prev_cell = None        # celda de la que el robot acaba de salir (falso positivo LIDAR)
 
     state["current_cell"] = route[0]
     print("Inicio en:", state["current_cell"])
@@ -122,6 +154,20 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     new_route = astar(state, cost_map, state["current_cell"], final_goal)
                     if new_route:
                         print(f"[RECOVERY] Ruta encontrada relajando bloqueo en {next_cell}")
+                if not new_route and wait_attempts < MAX_WAIT_ATTEMPTS:
+                    wait_attempts += 1
+                    print(
+                        f"[RECOVERY] Sin ruta. Esperando {WAIT_CLEAR_SECONDS}s "
+                        f"(intento {wait_attempts}/{MAX_WAIT_ATTEMPTS})..."
+                    )
+                    if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
+                        return False, local_cells_traversed, local_replans, local_route_cost
+                    released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
+                    if released:
+                        print(f"[RECOVERY] Celdas liberadas tras espera: {released}")
+                    new_route = astar(state, cost_map, state["current_cell"], final_goal)
+                    if new_route:
+                        print("[RECOVERY] Ruta encontrada tras espera")
                 if not new_route:
                     print(f"[WARN] Sin ruta posible desde {state['current_cell']} a {final_goal}, abandonando tarea.")
                     return False, local_cells_traversed, local_replans, local_route_cost
@@ -130,9 +176,55 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             continue
 
         forward_start_time = robot.getTime()
-        move_one_cell(robot, timestep, devices, state=state, target_cell=next_cell)
+        move_ok = move_one_cell(robot, timestep, devices, state=state, target_cell=next_cell, obstacle_check=True)
         forward_end_time = robot.getTime()
         forward_time = forward_end_time - forward_start_time
+
+        # --- LIDAR: obstáculo detectado DURANTE el avance (peatón que cruzó mientras se movía) ---
+        if not move_ok:
+            print(f"[LIDAR] Obstáculo durante avance hacia {next_cell}, bloqueando y replanificando...")
+            old_cost = cost_map[next_cell[0]][next_cell[1]]
+            block_cell(state, next_cell)
+            cost_map[next_cell[0]][next_cell[1]] = 999
+            state["block_ages"][next_cell] = 0
+            event_log.log_block(next_cell, old_cost, cost_map, sim_time=robot.getTime())
+
+            # Usar GPS para saber dónde paró realmente el robot
+            gps_cell = read_gps_cell(devices)
+            if gps_cell is not None:
+                state["current_cell"] = gps_cell
+                print(f"[GPS] Posición tras parada de emergencia: {state['current_cell']}")
+
+            new_route = astar(state, cost_map, state["current_cell"], final_goal)
+            local_replans += 1
+            if not new_route:
+                if next_cell not in lidar_recovered:
+                    lidar_recovered.add(next_cell)
+                    tentatively_unblock_cell(state, cost_map, next_cell)
+                    state["block_ages"].pop(next_cell, None)
+                    new_route = astar(state, cost_map, state["current_cell"], final_goal)
+                    if new_route:
+                        print(f"[RECOVERY] Ruta encontrada relajando bloqueo en {next_cell}")
+                if not new_route and wait_attempts < MAX_WAIT_ATTEMPTS:
+                    wait_attempts += 1
+                    print(
+                        f"[RECOVERY] Sin ruta. Esperando {WAIT_CLEAR_SECONDS}s "
+                        f"(intento {wait_attempts}/{MAX_WAIT_ATTEMPTS})..."
+                    )
+                    if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
+                        return False, local_cells_traversed, local_replans, local_route_cost
+                    released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
+                    if released:
+                        print(f"[RECOVERY] Celdas liberadas tras espera: {released}")
+                    new_route = astar(state, cost_map, state["current_cell"], final_goal)
+                    if new_route:
+                        print("[RECOVERY] Ruta encontrada tras espera")
+                if not new_route:
+                    print(f"[WARN] Sin ruta posible desde {state['current_cell']} a {final_goal}, abandonando tarea.")
+                    return False, local_cells_traversed, local_replans, local_route_cost
+            route = new_route
+            route_index = 1
+            continue
 
         total_transition_time = rotation_time + forward_time
 
