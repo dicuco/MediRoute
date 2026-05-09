@@ -93,7 +93,7 @@ AUTO_DELAY_THRESHOLD_RATIO = float(os.getenv("HALO_AUTO_DELAY_THRESHOLD_RATIO", 
 BLOCK_DECAY_TRAVERSALS = 15
 # Segundos de simulación tras los que un bloqueo LIDAR caduca por tiempo,
 # independientemente del número de celdas recorridas.
-BLOCK_DECAY_SECONDS = 30
+BLOCK_DECAY_SECONDS = 6
 # Coste asignado a una celda cuando su bloqueo LIDAR caduca.
 TENTATIVE_BLOCK_COST = 25
 
