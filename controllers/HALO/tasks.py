@@ -1,4 +1,4 @@
-from config import (LOCATIONS, TRIGGER_CELL, GRID, BLOCK_DECAY_TRAVERSALS)
+from config import (LOCATIONS, TRIGGER_CELL, GRID, BLOCK_DECAY_TRAVERSALS, BLOCK_DECAY_SECONDS)
 from navigation import (astar, direction_from_cells, traversal_cost,
                         apply_dynamic_event, passable, block_cell,
                         tentatively_unblock_cell)
@@ -9,8 +9,8 @@ import event_log
 
 # Segundos de simulación que el robot espera cuando no hay ruta disponible,
 # para dar tiempo a que los peatones despejen el pasillo.
-WAIT_CLEAR_SECONDS = 5.0
-MAX_WAIT_ATTEMPTS = 3
+WAIT_CLEAR_SECONDS = 2.0
+MAX_WAIT_ATTEMPTS = 10
 
 
 def _wait_sim_seconds(robot, timestep, seconds):
@@ -34,6 +34,7 @@ def _force_unblock_adjacent(state, cost_map, cell, lidar_recovered):
         if adj in state["dynamic_blocked_cells"]:
             tentatively_unblock_cell(state, cost_map, adj)
             state["block_ages"].pop(adj, None)
+            state["block_times"].pop(adj, None)
             lidar_recovered.discard(adj)
             released.append(adj)
     return released
@@ -72,13 +73,29 @@ def _ql_update(q_table, cost_map, state, s, action, forward_time, s_prime):
 
 
 def _decay_blocks(state, cost_map):
-    """Envejece los bloqueos dinámicos y caduca los que superan el umbral."""
+    """Envejece los bloqueos dinámicos y caduca los que superan el umbral de traversals."""
     for cell in list(state["dynamic_blocked_cells"]):
         age = state["block_ages"].get(cell, 0) + 1
         state["block_ages"][cell] = age
         if age >= BLOCK_DECAY_TRAVERSALS:
             tentatively_unblock_cell(state, cost_map, cell)
             state["block_ages"].pop(cell, None)
+            state["block_times"].pop(cell, None)
+
+
+def _time_decay_blocks(state, cost_map, current_time):
+    """
+    Caduca bloqueos LIDAR que llevan más de BLOCK_DECAY_SECONDS activos,
+    independientemente del número de celdas recorridas.
+    Permite que el robot replanifique aunque esté parado esperando.
+    """
+    for cell in list(state["dynamic_blocked_cells"]):
+        block_time = state["block_times"].get(cell)
+        if block_time is not None and current_time - block_time >= BLOCK_DECAY_SECONDS:
+            print(f"[TIME-DECAY] Bloqueo en {cell} caducado por tiempo ({current_time - block_time:.1f}s)")
+            tentatively_unblock_cell(state, cost_map, cell)
+            state["block_ages"].pop(cell, None)
+            state["block_times"].pop(cell, None)
 
 
 def follow_route_with_replanning(robot, timestep, devices, state, cost_map, route, final_goal, cell_metrics, q_table):
@@ -139,6 +156,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
             state["block_ages"][next_cell] = 0
+            state["block_times"][next_cell] = robot.getTime()
             event_log.log_block(next_cell, old_cost, cost_map, sim_time=robot.getTime())
             new_route = astar(state, cost_map, state["current_cell"], final_goal)
             local_replans += 1
@@ -151,6 +169,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     lidar_recovered.add(next_cell)
                     tentatively_unblock_cell(state, cost_map, next_cell)
                     state["block_ages"].pop(next_cell, None)
+                    state["block_times"].pop(next_cell, None)
                     new_route = astar(state, cost_map, state["current_cell"], final_goal)
                     if new_route:
                         print(f"[RECOVERY] Ruta encontrada relajando bloqueo en {next_cell}")
@@ -162,6 +181,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     )
                     if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
                         return False, local_cells_traversed, local_replans, local_route_cost
+                    _time_decay_blocks(state, cost_map, robot.getTime())
                     released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
                     if released:
                         print(f"[RECOVERY] Celdas liberadas tras espera: {released}")
@@ -187,13 +207,19 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
             state["block_ages"][next_cell] = 0
+            state["block_times"][next_cell] = robot.getTime()
             event_log.log_block(next_cell, old_cost, cost_map, sim_time=robot.getTime())
 
-            # Usar GPS para saber dónde paró realmente el robot
+            # Usar GPS para saber dónde paró realmente el robot.
+            # Si el GPS devuelve la celda recién bloqueada (el robot frenó
+            # justo en el límite), se mantiene la posición anterior para no
+            # situar lógicamente al robot dentro de un bloqueo.
             gps_cell = read_gps_cell(devices)
-            if gps_cell is not None:
+            if gps_cell is not None and gps_cell not in state["dynamic_blocked_cells"]:
                 state["current_cell"] = gps_cell
                 print(f"[GPS] Posición tras parada de emergencia: {state['current_cell']}")
+            else:
+                print(f"[GPS] GPS indica celda bloqueada ({gps_cell}), manteniendo {state['current_cell']}")
 
             new_route = astar(state, cost_map, state["current_cell"], final_goal)
             local_replans += 1
@@ -202,6 +228,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     lidar_recovered.add(next_cell)
                     tentatively_unblock_cell(state, cost_map, next_cell)
                     state["block_ages"].pop(next_cell, None)
+                    state["block_times"].pop(next_cell, None)
                     new_route = astar(state, cost_map, state["current_cell"], final_goal)
                     if new_route:
                         print(f"[RECOVERY] Ruta encontrada relajando bloqueo en {next_cell}")
@@ -213,6 +240,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     )
                     if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
                         return False, local_cells_traversed, local_replans, local_route_cost
+                    _time_decay_blocks(state, cost_map, robot.getTime())
                     released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
                     if released:
                         print(f"[RECOVERY] Celdas liberadas tras espera: {released}")
@@ -273,6 +301,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         s_prime = route[route_index + 1] if route_index + 1 < len(route) else None
         _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
         _decay_blocks(state, cost_map)
+        _time_decay_blocks(state, cost_map, robot.getTime())
 
         # --- 3. Evento dinámico en TRIGGER_CELL ---
         if state["current_cell"] == TRIGGER_CELL and not state["replan_already_done"]:
@@ -325,8 +354,19 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
     replans = 0
     executed_route_cost = 0
 
+    # Liberar bloqueos caducados por tiempo antes de planificar,
+    # por si el robot llegó aquí tras completar una tarea sin pasar
+    # por suficientes celdas para que el decay se activara.
+    _time_decay_blocks(state, cost_map, robot.getTime())
+
     if not origin_from_current and state["current_cell"] != origin:
         route_to_origin = astar(state, cost_map, state["current_cell"], origin)
+        if not route_to_origin:
+            # Reintento tras liberar bloqueos dinámicos adyacentes al punto de partida
+            released = _force_unblock_adjacent(state, cost_map, state["current_cell"], set())
+            if released:
+                print(f"[RECOVERY] Celdas liberadas para ruta al origen: {released}")
+                route_to_origin = astar(state, cost_map, state["current_cell"], origin)
         print("Ruta hasta el origen:", route_to_origin)
 
         if route_to_origin and len(route_to_origin) >= 2:
@@ -344,6 +384,12 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
             return False
 
     route_to_destination = astar(state, cost_map, state["current_cell"], destination)
+    if not route_to_destination:
+        # Reintento tras liberar bloqueos dinámicos adyacentes al punto de partida
+        released = _force_unblock_adjacent(state, cost_map, state["current_cell"], set())
+        if released:
+            print(f"[RECOVERY] Celdas liberadas para ruta al destino: {released}")
+            route_to_destination = astar(state, cost_map, state["current_cell"], destination)
     print("Ruta de entrega:", route_to_destination)
 
     if not route_to_destination:

@@ -27,8 +27,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.2537727640463901 0.6943601802053714 0.673396855036775 0.9945103729939336
-  position -23.853082943508166 -23.91544471052473 27.515773806170202
+  orientation -0.3138802306722457 0.7213928710037287 0.6173099111938309 1.2279391869844274
+  position -15.211647743919402 -20.635667878188144 35.09780237065113
   follow "rectangle arena"
   followType "None"
 }
@@ -75,12 +75,12 @@ Worktop {
   size 1.6 0.44 0.06
 }
 Pedestrian {
-  translation -1.94 3.06 1.27
+  translation -1.94 9.19 1.27
   rotation 0 0 1 -1.5707953071795862
   controller "random_pedestrian"
   controllerArgs [
     "--speed"
-    "0.9"
+    "0.5"
     "--pause-min"
     "0.2"
     "--pause-max"
@@ -93,13 +93,13 @@ Pedestrian {
   ]
 }
 Pedestrian {
-  translation -1.42 2.91 1.37
+  translation 3.29 2.91 1.37
   rotation 0 0 1 -1.5707953071795862
   name "pedestrian(2)"
   controller "random_pedestrian"
   controllerArgs [
     "--speed"
-    "1.1"
+    "0.5"
     "--pause-min"
     "0.1"
     "--pause-max"
@@ -118,7 +118,7 @@ Pedestrian {
   controller "random_pedestrian"
   controllerArgs [
     "--speed"
-    "0.85"
+    "0.5"
     "--pause-min"
     "0.3"
     "--pause-max"

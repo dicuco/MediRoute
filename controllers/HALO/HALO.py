@@ -144,7 +144,8 @@ state = {
     "replan_already_done": False,
     "dynamic_blocked_cells": set(),
     "cell_states": cell_states,
-    "block_ages": {},  # cell -> nº de celdas recorridas desde que se bloqueó
+    "block_ages": {},   # cell -> nº de celdas recorridas desde que se bloqueó
+    "block_times": {},  # cell -> tiempo de simulación (s) en que se bloqueó
 }
 
 idle_return_pending = True

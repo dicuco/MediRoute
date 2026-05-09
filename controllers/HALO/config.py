@@ -47,7 +47,7 @@ LEFT_SENSOR_CANDIDATES = ROBOT["left_sensor_candidates"]
 RIGHT_SENSOR_CANDIDATES = ROBOT["right_sensor_candidates"]
 PROXIMITY_SENSOR_CANDIDATE_GROUPS = ROBOT["prox_sensor_candidate_groups"]
 
-SLOW_SPEED_FACTOR = 0.2
+SLOW_SPEED_FACTOR = 0.7
 
 # Parametros de robustez para control por odometria.
 FORWARD_TIMEOUT_FACTOR = float(os.getenv("HALO_FORWARD_TIMEOUT_FACTOR", "2.5"))
@@ -91,6 +91,9 @@ AUTO_DELAY_THRESHOLD_RATIO = float(os.getenv("HALO_AUTO_DELAY_THRESHOLD_RATIO", 
 # Celdas totales recorridas antes de que un bloqueo LIDAR caduque y el robot
 # lo intente de nuevo con coste alto (passable, pero caro).
 BLOCK_DECAY_TRAVERSALS = 15
+# Segundos de simulación tras los que un bloqueo LIDAR caduca por tiempo,
+# independientemente del número de celdas recorridas.
+BLOCK_DECAY_SECONDS = 30
 # Coste asignado a una celda cuando su bloqueo LIDAR caduca.
 TENTATIVE_BLOCK_COST = 25
 
