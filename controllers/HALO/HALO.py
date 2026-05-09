@@ -27,6 +27,7 @@ from metrics import (
     print_cell_state_summary
 )
 from tasks import execute_task
+from qlearning import create_q_table, print_q_summary, QL_CONFIG_STR
 
 try:
     from task_server import start_task_server
@@ -143,13 +144,16 @@ state = {
     "replan_already_done": False,
     "dynamic_blocked_cells": set(),
     "cell_states": cell_states,
-    "block_ages": {},  # cell -> nº de celdas recorridas desde que se bloqueó
+    "block_ages": {},   # cell -> nº de celdas recorridas desde que se bloqueó
+    "block_times": {},  # cell -> tiempo de simulación (s) en que se bloqueó
 }
 
 idle_return_pending = True
 
 # Datos dinámicos
 cost_map = create_cost_map()
+q_table = create_q_table()
+print(f"[Q-LEARN] Activo — {QL_CONFIG_STR}")
 event_log.log_initial_cost_map(cost_map)
 task_queue = create_task_queue()
 if TASK_SERVER_ENABLED:
@@ -201,6 +205,7 @@ while True:
                         cost_map,
                         task_metrics,
                         cell_metrics,
+                        q_table,
                         "CURRENT",
                         "PHARMACY",
                     )
@@ -225,6 +230,7 @@ while True:
             cost_map,
             task_metrics,
             cell_metrics,
+            q_table,
             task.origin,
             task.destination
         )
@@ -252,6 +258,7 @@ for row in cost_map:
 print_task_summary(task_metrics)
 print_cell_summary(cell_metrics)
 print_cell_state_summary(state["cell_states"])
+print_q_summary(q_table)
 
 event_log.flush()
 
