@@ -11,11 +11,14 @@ The main objective of MediRoute is to improve hospital internal logistics by red
 - **Task queue management** — priority-based queue for origin-destination delivery requests, manageable at runtime via REST API
 - **Hospital representation as a 2D grid** — 28 × 22 cell map aligned to the Webots world geometry
 - **A\* route planning** on a weighted cost map
-- **Cell-by-cell route execution** with odometry control
-- **Multi-trigger dynamic replanning** — five independent replanning conditions per route step
-- **LIDAR-based obstacle detection** — real-time frontal scan blocks cells and triggers immediate rerouting
-- **Block decay** — LIDAR blocks expire after a configurable number of traversals and become tentatively passable again
-- **GPS position correction** — absolute cell position read after each move to correct odometry drift
+- **Cell-by-cell route execution** with odometry control and hybrid GPS/encoder correction
+- **Multi-trigger dynamic replanning** — six independent replanning conditions per route step
+- **LIDAR-based obstacle detection (pre-movement)** — frontal scan after rotation blocks cells and triggers immediate rerouting before the robot starts moving
+- **LIDAR-based obstacle detection (mid-movement)** — continuous LIDAR scan during forward motion; emergency stop if an obstacle enters the path while the robot is already moving
+- **Dual-mechanism block decay** — LIDAR blocks expire either after a configurable number of traversals *or* after a configurable wall-clock time (whichever comes first), so a moving pedestrian cannot permanently block a corridor even if the robot is stationary
+- **Wait-and-retry recovery** — when no alternative route exists after all LIDAR recovery attempts, the robot waits a configurable number of seconds for pedestrians to clear the path, then force-unblocks adjacent dynamic blocks and replans; up to `MAX_WAIT_ATTEMPTS` attempts per task
+- **Inter-task decay** — time-based block decay is re-evaluated at the start of every new task, preventing stale blocks from cutting off entire areas of the map between deliveries
+- **GPS position correction** — absolute cell position read after each move to correct odometry drift; after an emergency stop the GPS result is discarded if it points to a cell that was just blocked (avoids placing the robot logically inside a dynamic obstacle)
 - **Q-Learning cost-map adaptation** — tabular Q-Learning updates cell costs from observed traversal times, making A\* avoid corridors that have been slow in previous tasks
 - **Explicit cell states** — `FREE`, `CONGESTED`, `BLOCKED`
 - **Travel-time monitoring** per cell and per task
@@ -101,7 +104,12 @@ Example convergence values (isolated cell, `γ = 0`):
 
 After each Q update the corresponding `cost_map` entry is refreshed, so A\* immediately uses the new cost on the next replanning call.
 
-**Interaction with LIDAR blocks.** When the LIDAR detects an obstacle, the cell is set to cost 999 (`BLOCKED`). After `BLOCK_DECAY_TRAVERSALS` (default 15) subsequent traversals the block expires and the cell is set to `TENTATIVE_BLOCK_COST` (25). If the robot then traverses the tentatively-unblocked cell slowly, Q-Learning raises its cost further; if quickly, Q-Learning reduces it toward 1, confirming the obstacle was transient.
+**Interaction with LIDAR blocks.** When the LIDAR detects an obstacle, the cell is set to cost 999 (`BLOCKED`). A block expires under two independent conditions:
+
+1. **Traversal-based decay** — after `BLOCK_DECAY_TRAVERSALS` (default 15) subsequent cell traversals the block is tentatively released.
+2. **Time-based decay** — after `BLOCK_DECAY_SECONDS` (default 30) seconds of simulation time the block is released regardless of how many cells the robot has traversed. This prevents a moving pedestrian from permanently isolating a corridor when the robot is stuck or rerouted.
+
+In both cases the cell is set to `TENTATIVE_BLOCK_COST` (25). If the robot then traverses the tentatively-unblocked cell slowly, Q-Learning raises its cost further; if quickly, Q-Learning reduces it toward 1, confirming the obstacle was transient.
 
 ## Current implementation
 
@@ -109,16 +117,20 @@ The controller supports:
 
 - sequential execution of delivery tasks with configurable initial queue
 - weighted A\* path planning with runtime-updated costs
-- LIDAR obstacle detection and dynamic cell blocking
-- block age tracking and automatic expiry (decay)
-- GPS-based odometry correction after every move
+- LIDAR obstacle detection and dynamic cell blocking — checked both before moving and continuously during forward motion
+- emergency stop mid-movement if a pedestrian crosses the path while the robot is already advancing
+- dual-mechanism block decay: traversal-count threshold and wall-clock time threshold
+- wait-and-retry recovery: the robot waits up to `MAX_WAIT_ATTEMPTS × WAIT_CLEAR_SECONDS` for the path to clear before abandoning a task
+- inter-task block decay: stale LIDAR blocks are released at the start of each new task to prevent map fragmentation
+- GPS-based odometry correction after every move; GPS result ignored if it places the robot inside a freshly blocked cell (emergency-stop edge case)
 - Q-Learning cost-map adaptation (tabular, 4 actions per cell)
-- five-trigger dynamic replanning per route step:
+- six-trigger dynamic replanning per route step:
   1. Proactive check — next cell blocked before moving
-  2. LIDAR scan — obstacle detected after rotating toward next cell
-  3. LIDAR recovery — tentative unblock and retry if no alternative route
-  4. GPS correction — replan if GPS position is non-adjacent to planned route
-  5. Dynamic event — cost/block changes triggered at a configurable cell
+  2. LIDAR pre-movement scan — obstacle detected after rotating toward next cell
+  3. LIDAR mid-movement scan — emergency stop and replan if obstacle detected during forward motion
+  4. LIDAR recovery — tentative unblock and retry if no alternative route exists
+  5. GPS correction — replan if GPS position is non-adjacent to planned route
+  6. Dynamic event — cost/block changes triggered at a configurable cell
 - metrics per task: travel time, traversed cells, replans, route cost
 - metrics per cell: visits, rotation time, forward time, delays
 - explicit cell-state tracking: `FREE`, `CONGESTED`, `BLOCKED`
@@ -155,12 +167,20 @@ Key parameters in `config.py` (all overridable via environment variables where n
 |-----------|---------|-------------|
 | `MAP_SCALE` | `4.0` | Grid scale factor relative to the original layout |
 | `CELL_SIZE` | `1.0 m` | Physical size of one grid cell |
-| `BLOCK_DECAY_TRAVERSALS` | `15` | Cells traversed before a LIDAR block expires |
+| `BLOCK_DECAY_TRAVERSALS` | `15` | Cells traversed before a LIDAR block expires (traversal-based decay) |
+| `BLOCK_DECAY_SECONDS` | `30` | Seconds of simulation time before a LIDAR block expires (time-based decay) |
 | `TENTATIVE_BLOCK_COST` | `25` | Cost assigned when a LIDAR block expires |
 | `AUTO_DELAY_THRESHOLD_RATIO` | `1.2` | Forward-time ratio that counts as a delay in metrics |
 | `TRIGGER_CELL` | `(27, 21)` | Cell that fires the dynamic map event |
 | `PENALTY_TARGETS` | `[]` | Cells penalised by the dynamic event |
 | `NEW_BLOCKED_CELLS` | `[]` | Cells blocked by the dynamic event |
+
+Key parameters in `tasks.py`:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `WAIT_CLEAR_SECONDS` | `2.0` | Seconds the robot waits per recovery attempt when no route is found |
+| `MAX_WAIT_ATTEMPTS` | `10` | Maximum number of wait-and-retry cycles before abandoning the task |
 
 Q-Learning parameters in `qlearning.py`:
 
