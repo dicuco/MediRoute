@@ -24,7 +24,8 @@ from metrics import (
     create_cell_metrics,
     print_task_summary,
     print_cell_summary,
-    print_cell_state_summary
+    print_cell_state_summary,
+    save_metrics_csv,
 )
 from tasks import execute_task
 from qlearning import create_q_table, print_q_summary, QL_CONFIG_STR
@@ -239,6 +240,7 @@ while True:
         success = False
 
     task_queue.complete(task.task_id, success)
+    save_metrics_csv(task_metrics)
     idle_return_pending = True
 
     if not success:
@@ -259,6 +261,7 @@ print_task_summary(task_metrics)
 print_cell_summary(cell_metrics)
 print_cell_state_summary(state["cell_states"])
 print_q_summary(q_table)
+save_metrics_csv(task_metrics)
 
 event_log.flush()
 

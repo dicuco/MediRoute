@@ -43,33 +43,29 @@ def _force_unblock_adjacent(state, cost_map, cell, lidar_recovered):
 def _ql_update(q_table, cost_map, state, s, action, forward_time, s_prime):
     """
     Actualiza Q(s, action) con la ecuación de Bellman y sincroniza cost_map[s].
-
-    s        : celda que acaba de traversarse (destino del paso actual)
-    action   : dirección con la que se entró a s  (0=N 1=E 2=S 3=O)
-    forward_time : tiempo real de avance hasta s
-    s_prime  : siguiente celda planificada, o None si s es el destino final
+    Devuelve 1 si el coste de la celda cambió, 0 en caso contrario.
     """
     _DIRS = ["N", "E", "S", "O"]
     r, c = s
     if GRID[r][c] != 0 or s in state["dynamic_blocked_cells"]:
-        return
+        return 0
 
     old_cost = cost_map[r][c]
     q_update(q_table, s, action, forward_time, s_prime)
     sync_cell_cost(q_table, cost_map, state, s)
 
-    # min(Q) es el valor que determina el coste (dirección más penalizada)
     worst_q = min(q_table[r][c])
     new_cost = cost_map[r][c]
     deviation = abs(worst_q - QL_INIT_VALUE)
 
-    # Siempre imprime si hay desviación significativa del ideal; marca ★ si cambia el coste.
     if deviation > 0.05 or new_cost != old_cost:
         marker = "  ★ coste cambiado" if new_cost != old_cost else ""
         print(
             f"[Q-LEARN] ({r:2d},{c:2d}) ←{_DIRS[action]}  "
             f"t={forward_time:.3f}s  Q_worst={worst_q:8.3f}  coste={new_cost}{marker}"
         )
+
+    return 1 if new_cost != old_cost else 0
 
 
 def _decay_blocks(state, cost_map):
@@ -105,17 +101,25 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
     2. Evento dinámico en TRIGGER_CELL: aplica cambios de mapa y replanifica.
     3. Después de cada movimiento: corrige la posición lógica con GPS y
        replanifica si el robot se ha desviado a una celda no adyacente a la ruta.
+
+    Devuelve:
+        (success, cells_traversed, replans, route_cost,
+         wait_attempts, lidar_blocks, rotation_time_total, forward_time_total, q_cost_changes)
     """
     if not route or len(route) < 2:
         print("Ruta vacía o demasiado corta")
-        return False, 0, 0, 0
+        return False, 0, 0, 0, 0, 0, 0.0, 0.0, 0
 
     local_cells_traversed = 0
     local_replans = 0
     local_route_cost = 0
-    lidar_recovered = set()  # celdas que ya tuvieron un intento de recuperación
-    wait_attempts = 0       # veces que el robot esperó a que el pasillo se despejara
-    prev_cell = None        # celda de la que el robot acaba de salir (falso positivo LIDAR)
+    lidar_recovered = set()
+    wait_attempts = 0
+    prev_cell = None
+    lidar_blocks = 0
+    local_rotation_time = 0.0
+    local_forward_time = 0.0
+    local_q_changes = 0
 
     state["current_cell"] = route[0]
     print("Inicio en:", state["current_cell"])
@@ -132,7 +136,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             local_replans += 1
             if not new_route:
                 print("No se encontró ruta alternativa.")
-                return False, local_cells_traversed, local_replans, local_route_cost
+                return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
             route = new_route
             route_index = 1
             state["current_cell"] = route[0]
@@ -147,11 +151,9 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         rotation_time = rotation_end_time - rotation_start_time
 
         # --- LIDAR: obstáculo dinámico detectado tras girar hacia next_cell ---
-        # Ignoramos el LIDAR solo para la celda inmediatamente anterior: si el obstáculo
-        # está en la celda de al lado, al girar en sentido contrario puede dar falso positivo.
-        # El resto de celdas (incluso visitadas antes) se comprueban normalmente.
         if next_cell != prev_cell and check_lidar_obstacle(devices):
             print(f"[LIDAR] Obstáculo frente a {next_cell}, bloqueando y replanificando...")
+            lidar_blocks += 1
             old_cost = cost_map[next_cell[0]][next_cell[1]]
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
@@ -161,10 +163,6 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             new_route = astar(state, cost_map, state["current_cell"], final_goal)
             local_replans += 1
             if not new_route:
-                # Sin ruta alternativa: si aún no hemos intentado recuperación para
-                # esta celda, relajamos el bloqueo a coste alto y reintentamos.
-                # Así el robot puede pasar si era un falso positivo, y si el obstáculo
-                # sigue ahí el LIDAR lo re-detectará en el siguiente paso.
                 if next_cell not in lidar_recovered:
                     lidar_recovered.add(next_cell)
                     tentatively_unblock_cell(state, cost_map, next_cell)
@@ -180,7 +178,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                         f"(intento {wait_attempts}/{MAX_WAIT_ATTEMPTS})..."
                     )
                     if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
-                        return False, local_cells_traversed, local_replans, local_route_cost
+                        return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
                     _time_decay_blocks(state, cost_map, robot.getTime())
                     released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
                     if released:
@@ -190,7 +188,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                         print("[RECOVERY] Ruta encontrada tras espera")
                 if not new_route:
                     print(f"[WARN] Sin ruta posible desde {state['current_cell']} a {final_goal}, abandonando tarea.")
-                    return False, local_cells_traversed, local_replans, local_route_cost
+                    return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
             route = new_route
             route_index = 1
             continue
@@ -200,9 +198,10 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         forward_end_time = robot.getTime()
         forward_time = forward_end_time - forward_start_time
 
-        # --- LIDAR: obstáculo detectado DURANTE el avance (peatón que cruzó mientras se movía) ---
+        # --- LIDAR: obstáculo detectado DURANTE el avance ---
         if not move_ok:
             print(f"[LIDAR] Obstáculo durante avance hacia {next_cell}, bloqueando y replanificando...")
+            lidar_blocks += 1
             old_cost = cost_map[next_cell[0]][next_cell[1]]
             block_cell(state, next_cell)
             cost_map[next_cell[0]][next_cell[1]] = 999
@@ -210,10 +209,6 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
             state["block_times"][next_cell] = robot.getTime()
             event_log.log_block(next_cell, old_cost, cost_map, sim_time=robot.getTime())
 
-            # Usar GPS para saber dónde paró realmente el robot.
-            # Si el GPS devuelve la celda recién bloqueada (el robot frenó
-            # justo en el límite), se mantiene la posición anterior para no
-            # situar lógicamente al robot dentro de un bloqueo.
             gps_cell = read_gps_cell(devices)
             if gps_cell is not None and gps_cell not in state["dynamic_blocked_cells"]:
                 state["current_cell"] = gps_cell
@@ -239,7 +234,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                         f"(intento {wait_attempts}/{MAX_WAIT_ATTEMPTS})..."
                     )
                     if not _wait_sim_seconds(robot, timestep, WAIT_CLEAR_SECONDS):
-                        return False, local_cells_traversed, local_replans, local_route_cost
+                        return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
                     _time_decay_blocks(state, cost_map, robot.getTime())
                     released = _force_unblock_adjacent(state, cost_map, state["current_cell"], lidar_recovered)
                     if released:
@@ -249,14 +244,16 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                         print("[RECOVERY] Ruta encontrada tras espera")
                 if not new_route:
                     print(f"[WARN] Sin ruta posible desde {state['current_cell']} a {final_goal}, abandonando tarea.")
-                    return False, local_cells_traversed, local_replans, local_route_cost
+                    return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
             route = new_route
             route_index = 1
             continue
 
         total_transition_time = rotation_time + forward_time
+        local_rotation_time += rotation_time
+        local_forward_time += forward_time
 
-        prev_cell = state["current_cell"]  # celda de la que acabamos de salir
+        prev_cell = state["current_cell"]
         state["current_cell"] = next_cell
 
         # --- 2. Corrección de posición con GPS ---
@@ -264,7 +261,6 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
         if gps_cell is not None and gps_cell != state["current_cell"]:
             print(f"[GPS] Posición corregida: odometría -> {state['current_cell']}, GPS -> {gps_cell}")
             state["current_cell"] = gps_cell
-            # Solo replanifica si el siguiente paso ya no es adyacente a la posición real
             if route_index + 1 < len(route):
                 planned_next = route[route_index + 1]
                 dr = abs(planned_next[0] - gps_cell[0])
@@ -274,11 +270,10 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
                     local_replans += 1
                     if not new_route:
                         print("No se encontró ruta desde posición GPS corregida.")
-                        return False, local_cells_traversed, local_replans, local_route_cost
+                        return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
                     route = new_route
                     route_index = 1
                     print(f"[GPS] Ruta recalculada: {route}")
-                    # Registra la celda antes de continuar con la nueva ruta
                     register_cell_traversal(state, cell_metrics, cost_map, state["current_cell"], rotation_time, forward_time)
                     local_cells_traversed += 1
                     local_route_cost += traversal_cost(cost_map, state["current_cell"])
@@ -299,7 +294,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
         # --- Q-Learning: actualiza Q(celda_actual, dirección_entrada) y caducidad ---
         s_prime = route[route_index + 1] if route_index + 1 < len(route) else None
-        _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
+        local_q_changes += _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
         _decay_blocks(state, cost_map)
         _time_decay_blocks(state, cost_map, robot.getTime())
 
@@ -318,7 +313,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
                 if not new_route:
                     print("No se encontró ruta alternativa.")
-                    return False, local_cells_traversed, local_replans, local_route_cost
+                    return False, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
 
                 route = new_route
                 route_index = 1
@@ -326,7 +321,7 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
         route_index += 1
 
-    return True, local_cells_traversed, local_replans, local_route_cost
+    return True, local_cells_traversed, local_replans, local_route_cost, wait_attempts, lidar_blocks, local_rotation_time, local_forward_time, local_q_changes
 
 
 def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_metrics, q_table,
@@ -353,16 +348,18 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
     cells_traversed = 0
     replans = 0
     executed_route_cost = 0
+    total_wait_attempts = 0
+    total_lidar_blocks = 0
+    total_rotation_time = 0.0
+    total_forward_time = 0.0
+    total_q_changes = 0
+    initial_route_length = 0
 
-    # Liberar bloqueos caducados por tiempo antes de planificar,
-    # por si el robot llegó aquí tras completar una tarea sin pasar
-    # por suficientes celdas para que el decay se activara.
     _time_decay_blocks(state, cost_map, robot.getTime())
 
     if not origin_from_current and state["current_cell"] != origin:
         route_to_origin = astar(state, cost_map, state["current_cell"], origin)
         if not route_to_origin:
-            # Reintento tras liberar bloqueos dinámicos adyacentes al punto de partida
             released = _force_unblock_adjacent(state, cost_map, state["current_cell"], set())
             if released:
                 print(f"[RECOVERY] Celdas liberadas para ruta al origen: {released}")
@@ -370,12 +367,18 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
         print("Ruta hasta el origen:", route_to_origin)
 
         if route_to_origin and len(route_to_origin) >= 2:
-            ok, partial_cells, partial_replans, partial_cost = follow_route_with_replanning(
+            initial_route_length += len(route_to_origin) - 1
+            ok, partial_cells, partial_replans, partial_cost, partial_waits, partial_lidar, partial_rot, partial_fwd, partial_q = follow_route_with_replanning(
                 robot, timestep, devices, state, cost_map, route_to_origin, origin, cell_metrics, q_table
             )
             cells_traversed += partial_cells
             replans += partial_replans
             executed_route_cost += partial_cost
+            total_wait_attempts += partial_waits
+            total_lidar_blocks += partial_lidar
+            total_rotation_time += partial_rot
+            total_forward_time += partial_fwd
+            total_q_changes += partial_q
 
             if not ok:
                 return False
@@ -385,7 +388,6 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
 
     route_to_destination = astar(state, cost_map, state["current_cell"], destination)
     if not route_to_destination:
-        # Reintento tras liberar bloqueos dinámicos adyacentes al punto de partida
         released = _force_unblock_adjacent(state, cost_map, state["current_cell"], set())
         if released:
             print(f"[RECOVERY] Celdas liberadas para ruta al destino: {released}")
@@ -396,12 +398,19 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
         print("No se encontró ruta al destino.")
         return False
 
-    ok, partial_cells, partial_replans, partial_cost = follow_route_with_replanning(
+    initial_route_length += max(0, len(route_to_destination) - 1)
+
+    ok, partial_cells, partial_replans, partial_cost, partial_waits, partial_lidar, partial_rot, partial_fwd, partial_q = follow_route_with_replanning(
         robot, timestep, devices, state, cost_map, route_to_destination, destination, cell_metrics, q_table
     )
     cells_traversed += partial_cells
     replans += partial_replans
     executed_route_cost += partial_cost
+    total_wait_attempts += partial_waits
+    total_lidar_blocks += partial_lidar
+    total_rotation_time += partial_rot
+    total_forward_time += partial_fwd
+    total_q_changes += partial_q
 
     task_end_time = robot.getTime()
     travel_time = task_end_time - task_start_time
@@ -415,7 +424,14 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
         travel_time,
         cells_traversed,
         replans,
-        executed_route_cost
+        executed_route_cost,
+        success=ok,
+        wait_attempts=total_wait_attempts,
+        lidar_blocks=total_lidar_blocks,
+        initial_route_length=initial_route_length,
+        rotation_time_total=total_rotation_time,
+        forward_time_total=total_forward_time,
+        q_cost_changes=total_q_changes,
     )
 
     if ok:
@@ -424,7 +440,10 @@ def execute_task(robot, timestep, devices, state, cost_map, task_metrics, cell_m
             f"Tiempo: {travel_time:.3f}s | "
             f"Celdas: {cells_traversed} | "
             f"Replans: {replans} | "
-            f"Coste: {executed_route_cost}"
+            f"Coste: {executed_route_cost} | "
+            f"Esperas: {total_wait_attempts} | "
+            f"Bloqueos LIDAR: {total_lidar_blocks} | "
+            f"Cambios Q: {total_q_changes}"
         )
 
     return ok
