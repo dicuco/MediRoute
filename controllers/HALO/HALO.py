@@ -28,7 +28,6 @@ from metrics import (
     save_metrics_csv,
 )
 from tasks import execute_task
-from qlearning import create_q_table, print_q_summary, QL_CONFIG_STR
 
 try:
     from task_server import start_task_server
@@ -153,8 +152,7 @@ idle_return_pending = True
 
 # Datos dinámicos
 cost_map = create_cost_map()
-q_table = create_q_table()
-print(f"[Q-LEARN] Activo — {QL_CONFIG_STR}")
+q_table = None
 event_log.log_initial_cost_map(cost_map)
 task_queue = create_task_queue()
 if TASK_SERVER_ENABLED:
@@ -260,7 +258,6 @@ for row in cost_map:
 print_task_summary(task_metrics)
 print_cell_summary(cell_metrics)
 print_cell_state_summary(state["cell_states"])
-print_q_summary(q_table)
 save_metrics_csv(task_metrics)
 
 event_log.flush()

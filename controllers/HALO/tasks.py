@@ -294,7 +294,8 @@ def follow_route_with_replanning(robot, timestep, devices, state, cost_map, rout
 
         # --- Q-Learning: actualiza Q(celda_actual, dirección_entrada) y caducidad ---
         s_prime = route[route_index + 1] if route_index + 1 < len(route) else None
-        local_q_changes += _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
+        if q_table is not None:
+            local_q_changes += _ql_update(q_table, cost_map, state, state["current_cell"], target_heading, forward_time, s_prime)
         _decay_blocks(state, cost_map)
         _time_decay_blocks(state, cost_map, robot.getTime())
 
